@@ -151,11 +151,11 @@ const process = (msg) => {
 
   // iterate selection
   msg.selected.forEach((selection) => {
-    const tokenObj = getObj("graphic", selection.id);
+    const tokenObj = getObj("graphic", selection._id);
     const template = actions[action];
 
     if (tokenObj === undefined) {
-      sChat(msg, `Unable to find graphic for ${selection.id}.`);
+      sChat(msg, `Unable to find graphic for ${selection._id}.`);
       return;
     }
 
@@ -166,7 +166,7 @@ const process = (msg) => {
     if (charObj === undefined) {
       sChat(
         msg,
-        `Token with id ${tokenObj.id} is not correctly linked to a good character.`
+        `Token with id ${tokenObj._id} is not correctly linked to a good character.`
       );
       return;
     }
