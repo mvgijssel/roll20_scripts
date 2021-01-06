@@ -139,13 +139,14 @@ class Character {
 class Context {
   constructor(messageObject) {
     this._messageObject = messageObject;
+    this._chatName = "animate";
   }
 
   info(text) {
     log(this._messageObject.who);
 
     sendChat(
-      "animate",
+      this._chatName,
       `/w ${this._messageObject.who.replace(
         " (GM)",
         ""
@@ -158,6 +159,10 @@ class Context {
   // TODO: implement different coloring here
   warn(text) {
     this.info(text);
+  }
+
+  roll(text, callback) {
+    sendChat(this._chatName, `/roll ${text}`, callback, { noarchive: true });
   }
 }
 
@@ -197,10 +202,10 @@ const findAttribute = (character, name, type) => {
   }
 };
 
-const applyUpdate = (character, attributes) => {
+const applyUpdate = (character) => {
   const messages = [];
 
-  attributes.forEach((attribute) => {
+  character.attributeArray.forEach((attribute) => {
     if (attributeExists(character, `preanimate_${attribute.name}`)) {
       messages.push(`Attribute '${attribute.name}' already updated, skipping.`);
       return;
@@ -267,32 +272,9 @@ const updateAbilities = (character) => {
   return results;
 };
 
-// TODO: use async await instead of crappy callbacks
-const updateHitpointCallback = (hdRoll, character) => {
-  const hp = findAttribute(character, "hp", "number");
-
-  // actually roll the hitpoints
-  sendChat(
-    "animate",
-    `/roll ${hdRoll.current}`,
-    (result) => {
-      const newHp = JSON.parse(result[0].content).total;
-      hp.current = newHp;
-      hp.max = newHp;
-      applyUpdate(character, [hp]);
-    },
-    { noarchive: true }
-  );
-};
-
 const updateHitPoints = (character, context) => {
   const results = [];
-  const hdRoll = findAttribute(
-    character,
-    "hd_roll",
-    "string",
-    updateHitpointCallback
-  );
+  const hdRoll = findAttribute(character, "hd_roll", "string");
   const matchResult = hdRoll.current.match(
     /(?<level>\d+)d(?<size>\d+)(?:\+(?<bonus>\d+))?/
   );
@@ -318,10 +300,20 @@ const updateHitPoints = (character, context) => {
   }
 
   hdRoll.current = newHdRoll;
-
   results.push(hdRoll);
 
-  return results;
+  return new Promise((resolve) => {
+    const hp = findAttribute(character, "hp", "number");
+
+    context.roll(hdRoll.current, (result) => {
+      const newHp = JSON.parse(result[0].content).total;
+      hp.current = newHp;
+      hp.max = newHp;
+
+      results.push(hp);
+      resolve(results);
+    });
+  });
 };
 
 const process = (msg) => {
@@ -350,7 +342,7 @@ const process = (msg) => {
   }
 
   // iterate selection
-  msg.selected.forEach((selection) => {
+  msg.selected.forEach(async (selection) => {
     const tokenObj = getObj("graphic", selection._id);
 
     if (tokenObj === undefined) {
@@ -385,9 +377,9 @@ const process = (msg) => {
     log(character);
 
     character.addAttributes(updateAbilities(character, context));
-    character.addAttributes(updateHitPoints(character, context));
+    character.addAttributes(await updateHitPoints(character, context));
 
-    const messages = applyUpdate(character, character.attributeArray);
+    const messages = applyUpdate(character);
     context.info(messages.join("<br />"));
 
     // log(results);
