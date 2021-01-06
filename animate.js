@@ -10,36 +10,7 @@
 // TODO: Implement special, check (Ex) qualities?
 // TODO: Update all attributes in a single go? More or less?
 
-/* global sendChat, findObjs, _, log, getObj, getAttrByName, on */
-
-const castToNumber = (value) => {
-  const newValue = parseInt(value, 10);
-  return Number.isNaN(newValue) ? 0 : newValue;
-};
-
-const sChat = (msg, txt) => {
-  sendChat(
-    "animate",
-    `/w ${msg.who.replace(
-      " (GM)",
-      ""
-    )} <div style="color: #993333;font-weight:bold;">${txt}</div>`,
-    null,
-    { noarchive: true }
-  );
-};
-
-const calculateModifier = (number) => Math.floor(number / 2) - 5;
-
-const calculateSizeBonus = (characterId, mapping) => {
-  const size = findObjs({
-    type: "attribute",
-    _characterid: characterId,
-    name: "size",
-  })[0];
-
-  return castToNumber(_.get(mapping, size.get("current"), 0));
-};
+/* global sendChat, findObjs, _, log, getObj, on */
 
 const bonusHdMapping = {
   tiny: 0,
@@ -49,34 +20,6 @@ const bonusHdMapping = {
   huge: +4,
   gargantuan: +6,
   colossal: +10,
-};
-
-const updateAbility = (characterId, name, value, operation = "set") => {
-  const ability = findObjs({
-    type: "attribute",
-    _characterid: characterId,
-    name,
-  })[0];
-
-  log(ability);
-
-  const currentValue = castToNumber(ability.get("current"));
-  const newValue = operation === "set" ? value : currentValue + value;
-
-  ability.set({ max: newValue, current: newValue });
-
-  const abilityMod = findObjs({
-    type: "attribute",
-    _characterid: characterId,
-    name: `${name}_mod`,
-  })[0];
-
-  const currentMod = castToNumber(abilityMod.get("current"));
-  const newMod = calculateModifier(newValue);
-
-  abilityMod.set({ current: newMod });
-
-  return `Updated ${name} from ${currentValue} (${currentMod}) to ${newValue} (${newMod})`;
 };
 
 const actions = {
@@ -110,11 +53,275 @@ const actions = {
   },
 };
 
+const castValue = (value, type) => {
+  switch (type) {
+    case "number": {
+      const newValue = parseInt(value, 10);
+      return Number.isNaN(newValue) ? null : newValue;
+    }
+    default: {
+      return value;
+    }
+  }
+};
+
+class Attribute {
+  constructor(originalAttribute, castType) {
+    this._id = originalAttribute.get("_id");
+    this._type = originalAttribute.get("_type");
+    this._characterid = originalAttribute.get("_characterid");
+    this.name = originalAttribute.get("name");
+    this._current = originalAttribute.get("current");
+    this._max = originalAttribute.get("max");
+    this._castType = castType;
+    this.originalAttribute = originalAttribute;
+    this.changedValues = {};
+    this.previousValues = {};
+  }
+
+  get hasChanged() {
+    return Object.keys(this.changedValues).length > 0;
+  }
+
+  get current() {
+    return castValue(this._current, this._type);
+  }
+
+  set current(value) {
+    this._setter(value, "current");
+  }
+
+  get max() {
+    return castValue(this._max, this._type);
+  }
+
+  set max(value) {
+    this._setter(value, "max");
+  }
+
+  _setter(value, field) {
+    const oldValue = this[field];
+    const newValue = castValue(value, this._castType);
+
+    if (oldValue !== newValue) {
+      this.previousValues[field] = oldValue;
+      this.changedValues[field] = newValue;
+      this[`_${field}`] = newValue;
+    }
+  }
+}
+
+class Character {
+  constructor(charObj, template) {
+    this.id = charObj.get("_id");
+    this.charObj = charObj;
+    this.template = template;
+    this.attributes = {};
+  }
+
+  addAttributes(newAttributes) {
+    _.flatten(newAttributes).forEach((attribute) => {
+      this.attributes[attribute.name] = attribute;
+    });
+  }
+
+  getAttribute(name) {
+    return this.attributes[name];
+  }
+
+  get attributeArray() {
+    return Object.keys(this.attributes).map(
+      (attributeName) => this.attributes[attributeName]
+    );
+  }
+}
+
+class Context {
+  constructor(messageObject) {
+    this._messageObject = messageObject;
+  }
+
+  info(text) {
+    log(this._messageObject.who);
+
+    sendChat(
+      "animate",
+      `/w ${this._messageObject.who.replace(
+        " (GM)",
+        ""
+      )} <div style="color: #993333;font-weight:bold;">${text}</div>`,
+      null,
+      { noarchive: true }
+    );
+  }
+
+  // TODO: implement different coloring here
+  warn(text) {
+    this.info(text);
+  }
+}
+
+const attributeExists = (character, name) => {
+  const result = findObjs({
+    type: "attribute",
+    _characterid: character.id,
+    name,
+  });
+
+  return result.length > 0;
+};
+
+const findAttribute = (character, name, type) => {
+  const result = findObjs({
+    type: "attribute",
+    _characterid: character.id,
+    name,
+  });
+
+  switch (result.length) {
+    case 0: {
+      throw new Error(
+        `Attribute '${name}' not found for character ${character.id}`
+      );
+    }
+    case 1: {
+      const attribute = new Attribute(result[0], type);
+      log(attribute);
+      return attribute;
+    }
+    default: {
+      throw new Error(
+        `Attribute '${name}' resulted in more than 1 (${result.length}) for character ${character.id}`
+      );
+    }
+  }
+};
+
+const applyUpdate = (character, attributes) => {
+  const messages = [];
+
+  attributes.forEach((attribute) => {
+    if (attributeExists(character, `preanimate_${attribute.name}`)) {
+      messages.push(`Attribute '${attribute.name}' already updated, skipping.`);
+      return;
+    }
+
+    const newValues = attribute.changedValues;
+    const oldValues = attribute.previousValues;
+
+    if (attribute.hasChanged) {
+      messages.push(
+        Object.keys(newValues).map(
+          (valueName) =>
+            `Updated ${valueName} ${attribute.name} from ${oldValues[valueName]} to ${newValues[valueName]}`
+        )
+      );
+    }
+
+    // TODO: create preanimate attribute object
+    attribute.originalAttribute.set(newValues);
+  });
+
+  return messages;
+};
+
 const usage = () => {
   const actionString = Object.keys(actions)
     .map((action) => `!animate ${action}`)
     .join("<br />");
   return `Select a token and type one of:<br />${actionString}`;
+};
+
+const calculateModifier = (number) => Math.floor(number / 2) - 5;
+
+const calculateSizeBonus = (character, mapping) => {
+  const size = findAttribute(character, "size", "string");
+  return castValue(_.get(mapping, size.current, 0), "number");
+};
+
+const updateAbilities = (character) => {
+  const updateAbility = (name, value, operation = "set") => {
+    const results = [];
+
+    const ability = findAttribute(character, name, "number");
+    const newValue = operation === "set" ? value : ability.current + value;
+    ability.current = newValue;
+    results.push(ability);
+
+    const abilityMod = findAttribute(character, `${name}_mod`, "number");
+    abilityMod.current = calculateModifier(newValue);
+    results.push(abilityMod);
+
+    return results;
+  };
+
+  const results = [];
+
+  results.push(updateAbility("constitution", 0));
+  results.push(updateAbility("intelligence", 0));
+  results.push(updateAbility("wisdom", 10));
+  results.push(updateAbility("charisma", 10));
+  results.push(updateAbility("strength", character.template.strength, "add"));
+  results.push(updateAbility("dexterity", character.template.dexterity, "add"));
+
+  return results;
+};
+
+// TODO: use async await instead of crappy callbacks
+const updateHitpointCallback = (hdRoll, character) => {
+  const hp = findAttribute(character, "hp", "number");
+
+  // actually roll the hitpoints
+  sendChat(
+    "animate",
+    `/roll ${hdRoll.current}`,
+    (result) => {
+      const newHp = JSON.parse(result[0].content).total;
+      hp.current = newHp;
+      hp.max = newHp;
+      applyUpdate(character, [hp]);
+    },
+    { noarchive: true }
+  );
+};
+
+const updateHitPoints = (character, context) => {
+  const results = [];
+  const hdRoll = findAttribute(
+    character,
+    "hd_roll",
+    "string",
+    updateHitpointCallback
+  );
+  const matchResult = hdRoll.current.match(
+    /(?<level>\d+)d(?<size>\d+)(?:\+(?<bonus>\d+))?/
+  );
+
+  if (matchResult === null) {
+    context.warn(
+      `hd_roll field does not follow 1d4+10 form: '${hdRoll.current}'. Skipping hit points`
+    );
+    return results;
+  }
+
+  const currentLevel = castValue(matchResult.groups.level, "number");
+  const newLevel = currentLevel + calculateSizeBonus(character, bonusHdMapping);
+  const newSize = 8;
+  const currentCharismaModifier = character.getAttribute("charisma_mod")
+    .current;
+  const newBonus = newLevel * castValue(currentCharismaModifier, "number");
+
+  let newHdRoll = `${newLevel}d${newSize}`;
+
+  if (newBonus > 0) {
+    newHdRoll = `${newHdRoll}+${newBonus}`;
+  }
+
+  hdRoll.current = newHdRoll;
+
+  results.push(hdRoll);
+
+  return results;
 };
 
 const process = (msg) => {
@@ -129,24 +336,25 @@ const process = (msg) => {
   log(msg);
   log(match.groups);
 
+  const context = new Context(msg);
+
   if (!Object.keys(actions).includes(action)) {
-    sChat(msg, `Unknown action '${match.groups.action}'. ${usage()}`);
+    context.info(`Unknown action '${match.groups.action}'. ${usage()}`);
     return;
   }
 
   // check for selection
   if (!msg.selected || msg.selected.length === 0) {
-    sChat(msg, usage());
+    context.info(usage());
     return;
   }
 
   // iterate selection
   msg.selected.forEach((selection) => {
     const tokenObj = getObj("graphic", selection._id);
-    const template = actions[action];
 
     if (tokenObj === undefined) {
-      sChat(msg, `Unable to find graphic for ${selection._id}.`);
+      context.info(`Unable to find graphic for ${selection._id}.`);
       return;
     }
 
@@ -155,8 +363,7 @@ const process = (msg) => {
     const charObj = getObj("character", tokenObj.get("represents"));
 
     if (charObj === undefined) {
-      sChat(
-        msg,
+      context.info(
         `Token with id ${tokenObj._id} is not correctly linked to a good character.`
       );
       return;
@@ -172,115 +379,66 @@ const process = (msg) => {
     log(attributes);
 
     // Update the character according to https://homebrewery.naturalcrit.com/share/HJMdrpxOx
-    const messages = [];
 
-    const currentName = charObj.get("name");
-    const newName = `${template.name} ${charObj.get("name")}`;
-    charObj.set({ name: newName });
-    messages.push(`Updated name from ${currentName} to ${newName}`);
+    const character = new Character(charObj, actions[action]);
 
-    // Step 1: Ability scores
-    messages.push(updateAbility(charObj.id, "constitution", 0));
-    messages.push(updateAbility(charObj.id, "intelligence", 0));
-    messages.push(updateAbility(charObj.id, "wisdom", 10));
-    messages.push(updateAbility(charObj.id, "charisma", 10));
-    messages.push(
-      updateAbility(charObj.id, "strength", template.strength, "add")
-    );
-    messages.push(
-      updateAbility(charObj.id, "dexterity", template.dexterity, "add")
-    );
+    log(character);
+
+    character.addAttributes(updateAbilities(character, context));
+    character.addAttributes(updateHitPoints(character, context));
+
+    const messages = applyUpdate(character, character.attributeArray);
+    context.info(messages.join("<br />"));
+
+    // log(results);
+
+    // newAttributes.push(updateHitPoints(character));
+    // newAttributes.push(updateArmor(character));
+    // newAttributes.push(updateType(character)); // includes name
+    // newAttributes.push(updateSaves(character));
+    // newAttributes.push(updateAttack(character)); // bab and weapons
+    // newAttributes.push(updateSkills(character));
+    // newAttributes.push(updateFeats(character));
+    // newAttributes.push(updateSpecial(character));
+
+    // const messages = [];
+
+    // const currentName = charObj.get("name");
+    // const newName = `${template.name} ${charObj.get("name")}`;
+    // charObj.set({ name: newName });
+    // messages.push(`Updated name from ${currentName} to ${newName}`);
 
     // Step 2: Hit dice and natural armor
-    const hdRoll = findObjs({
-      type: "attribute",
-      _characterid: charObj.id,
-      name: "hd_roll",
-    })[0];
 
-    const currentHdRoll = hdRoll.get("current");
+    // // calculate ac: 10 + armor bonus + shield bonus + dext modifier + natural armor - size modifier
+    // // 10 + -1 (size)
+    // // current 17
+    // // also ac_touch, ac_flatfooted
+    // // parse the ac_notes
+    // // const ac = findObjs({
+    // //   type: "attribute",
+    // //   _characterid: charObj.id,
+    // //   name: "ac",
+    // // })[0];
 
-    log(currentHdRoll);
-
-    // This matching 4d8+12 notation and parses out the 3 numbers
-    const matchResult = currentHdRoll.match(
-      /(?<level>\d+)d(?<size>\d+)(?:\+(?<bonus>\d+))?/
-    );
-
-    if (matchResult === null) {
-      sChat(
-        msg,
-        `Cannot parse hd_roll field: '${currentHdRoll}'. Skipping hit points`
-      );
-    } else {
-      const currentLevel = castToNumber(matchResult.groups.level);
-      const newLevel =
-        currentLevel + calculateSizeBonus(charObj.id, bonusHdMapping);
-      const newSize = 8;
-      const newBonus =
-        newLevel * castToNumber(getAttrByName(charObj.id, "charisma_mod"));
-
-      let newHdRoll = `${newLevel}d${newSize}`;
-
-      if (newBonus > 0) {
-        newHdRoll = `${newHdRoll}+${newBonus}`;
-      }
-
-      hdRoll.set({ current: newHdRoll });
-      messages.push(`Updated hd_roll from ${currentHdRoll} to ${newHdRoll}`);
-
-      // actually roll the hitpoints
-      const hp = findObjs({
-        type: "attribute",
-        _characterid: charObj.id,
-        name: "hp",
-      })[0];
-
-      sendChat(
-        "animate",
-        `/roll ${newHdRoll}`,
-        (result) => {
-          log(result);
-
-          const currentMaxHp = hp.get("max");
-          const newHp = JSON.parse(result[0].content).total;
-
-          hp.set({ current: newHp, max: newHp });
-          sChat(msg, `Updated hp from ${currentMaxHp} to ${newHp}`);
-        },
-        { noarchive: true }
-      );
-    }
-
-    // calculate ac: 10 + armor bonus + shield bonus + dext modifier + natural armor - size modifier
-    // 10 + -1 (size)
-    // current 17
-    // also ac_touch, ac_flatfooted
-    // parse the ac_notes
-    // const ac = findObjs({
+    // // // current
+    // const acNotes = findObjs({
     //   type: "attribute",
     //   _characterid: charObj.id,
-    //   name: "ac",
+    //   name: "ac_notes",
     // })[0];
 
-    // // current
-    const acNotes = findObjs({
-      type: "attribute",
-      _characterid: charObj.id,
-      name: "ac_notes",
-    })[0];
+    // const newNaturalAc = calculateSizeBonus(
+    //   charObj.id,
+    //   template.naturalArmorBonus
+    // );
 
-    const newNaturalAc = calculateSizeBonus(
-      charObj.id,
-      template.naturalArmorBonus
-    );
-
-    sChat(
-      msg,
-      `MANUALLY update current ac '${acNotes.get(
-        "current"
-      )}' REPLACING natural armor bonus to +${newNaturalAc}.`
-    );
+    // sChat(
+    //   msg,
+    //   `MANUALLY update current ac '${acNotes.get(
+    //     "current"
+    //   )}' REPLACING natural armor bonus to +${newNaturalAc}.`
+    // );
 
     // TODO: update fortitude, reflex, will
     // TODO: update bab
@@ -307,8 +465,6 @@ const process = (msg) => {
     // update weapons using repeating rows
     // https://github.com/Roll20/roll20-api-scripts/blob/12d949a668df8a986f1a20f32fc9aff667c6ee8e/CharSheetUtils/1.0/index.js
     // createObj("attribute", {name: 'repeating_attack_$7_name', current: 'testingXYZ', _characterid: character.id});
-
-    sChat(msg, messages.join("<br />"));
   });
 };
 
