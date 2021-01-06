@@ -1,14 +1,12 @@
 // TODO: Make idempotent
 // TODO: Make reverse of animate. preanimate?
 // TODO: Make !animate be able to assign it to a user
-// TODO: Implement updated armor
 // TODO: Implement saves
 // TODO: Implement base attack bonus
 // TODO: Implement type and alignment
 // TODO: Implement skills
 // TODO: Implement feats
 // TODO: Implement special, check (Ex) qualities?
-// TODO: Update all attributes in a single go? More or less?
 
 /* global sendChat, findObjs, _, log, getObj, on */
 
@@ -137,9 +135,10 @@ class Character {
 }
 
 class Context {
-  constructor(messageObject) {
+  constructor(messageObject, action) {
     this._messageObject = messageObject;
     this._chatName = "animate";
+    this.action = action;
   }
 
   info(text) {
@@ -227,7 +226,7 @@ const applyUpdate = (character) => {
     attribute.originalAttribute.set(newValues);
   });
 
-  return messages;
+  return _.flatten(messages);
 };
 
 const usage = () => {
@@ -316,6 +315,160 @@ const updateHitPoints = (character, context) => {
   });
 };
 
+class UnmatchedRegex extends Error {}
+
+// , -1 Size
+const updateArmor = (character, context) => {
+  const results = [];
+  const newNaturalAc = calculateSizeBonus(
+    character,
+    character.template.naturalArmorBonus
+  );
+  const newDexterityAc = calculateModifier(
+    character.getAttribute("dexterity").current
+  );
+  const ac = findAttribute(character, "ac", "number");
+  const acNotes = findAttribute(character, "ac_notes", "string");
+  const acData = {};
+
+  try {
+    acNotes.current.split(",").forEach((note) => {
+      // This matches for example '+4 Armor' or '-1 Dex' or '5 Natural'
+      const matchResult = note
+        .trim()
+        .match(/(?<sign>[-|+])?\s*(?<amount>\d+)\s*(?<category>\w+)/);
+
+      if (matchResult === null) {
+        throw new UnmatchedRegex();
+      }
+
+      // Note we're defaulting to negative if the sign is missing from the note
+      const { sign = "-", amount, category } = matchResult.groups;
+
+      acData[category] = castValue(`${sign}${amount}`, "number");
+    });
+  } catch (e) {
+    if (e instanceof UnmatchedRegex) {
+      log("warn working???");
+
+      context.warn(
+        `ac_notes field does not follow '+1 Dex, +2 Natural, 3 Armor' form: '${acNotes.current}'. Skipping updating armor.`
+      );
+      return results;
+    }
+
+    throw e;
+  }
+
+  const numberWithSign = (number) => {
+    if (number >= 0) {
+      return `+${number}`;
+    }
+    return `${number}`;
+  };
+
+  acData.Natural = newNaturalAc;
+  acData.Dex = newDexterityAc;
+
+  acNotes.current = Object.keys(acData)
+    .map((key) => `${numberWithSign(acData[key])} ${key}`)
+    .join(", ");
+  results.push(acNotes);
+
+  ac.current =
+    10 +
+    Object.values(acData).reduce((acc, currentValue) => acc + currentValue, 0);
+  results.push(ac);
+
+  return results;
+};
+
+const processCharacter = async (selection, context) => {
+  const tokenObj = getObj("graphic", selection._id);
+
+  if (tokenObj === undefined) {
+    context.info(`Unable to find graphic for ${selection._id}.`);
+    return;
+  }
+
+  log(tokenObj);
+
+  const charObj = getObj("character", tokenObj.get("represents"));
+
+  if (charObj === undefined) {
+    context.info(
+      `Token with id ${tokenObj._id} is not correctly linked to a good character.`
+    );
+    return;
+  }
+
+  log(charObj);
+
+  const attributes = findObjs(
+    { type: "attribute", _characterid: charObj.id },
+    { caseInsensitive: true }
+  );
+
+  log(attributes);
+
+  // Update the character according to https://homebrewery.naturalcrit.com/share/HJMdrpxOx
+
+  const character = new Character(charObj, actions[context.action]);
+
+  log(character);
+
+  character.addAttributes(updateAbilities(character, context));
+  character.addAttributes(await updateHitPoints(character, context));
+  character.addAttributes(updateArmor(character, context));
+
+  const messages = applyUpdate(character);
+  context.info(messages.join("<br />"));
+
+  // log(results);
+
+  // newAttributes.push(updateType(character)); // includes name
+  // newAttributes.push(updateSaves(character));
+  // newAttributes.push(updateAttack(character)); // bab and weapons
+  // newAttributes.push(updateSkills(character));
+  // newAttributes.push(updateFeats(character));
+  // newAttributes.push(updateSpecial(character));
+
+  // const messages = [];
+
+  // const currentName = charObj.get("name");
+  // const newName = `${template.name} ${charObj.get("name")}`;
+  // charObj.set({ name: newName });
+  // messages.push(`Updated name from ${currentName} to ${newName}`);
+
+  // Step 2: Hit dice and natural armor
+
+  // TODO: update fortitude, reflex, will
+  // TODO: update bab
+
+  // const attributes = findObjs(
+  //   { type: "attribute", _characterid: charObj.id },
+  //   { caseInsensitive: true }
+  // );
+
+  // log(attributes);
+
+  // Step 3: Base stats
+
+  // update name to + action?
+  // const attributes = findObjs(
+  //   { type: "attribute", _characterid: charObj.id },
+  //   { caseInsensitive: true }
+  // );
+
+  // log(attributes);
+
+  // update character controlled by username
+
+  // update weapons using repeating rows
+  // https://github.com/Roll20/roll20-api-scripts/blob/12d949a668df8a986f1a20f32fc9aff667c6ee8e/CharSheetUtils/1.0/index.js
+  // createObj("attribute", {name: 'repeating_attack_$7_name', current: 'testingXYZ', _characterid: character.id});
+};
+
 const process = (msg) => {
   if (msg.type !== "api") return;
 
@@ -328,7 +481,7 @@ const process = (msg) => {
   log(msg);
   log(match.groups);
 
-  const context = new Context(msg);
+  const context = new Context(msg, action);
 
   if (!Object.keys(actions).includes(action)) {
     context.info(`Unknown action '${match.groups.action}'. ${usage()}`);
@@ -341,122 +494,16 @@ const process = (msg) => {
     return;
   }
 
-  // iterate selection
-  msg.selected.forEach(async (selection) => {
-    const tokenObj = getObj("graphic", selection._id);
-
-    if (tokenObj === undefined) {
-      context.info(`Unable to find graphic for ${selection._id}.`);
-      return;
-    }
-
-    log(tokenObj);
-
-    const charObj = getObj("character", tokenObj.get("represents"));
-
-    if (charObj === undefined) {
-      context.info(
-        `Token with id ${tokenObj._id} is not correctly linked to a good character.`
-      );
-      return;
-    }
-
-    log(charObj);
-
-    const attributes = findObjs(
-      { type: "attribute", _characterid: charObj.id },
-      { caseInsensitive: true }
-    );
-
-    log(attributes);
-
-    // Update the character according to https://homebrewery.naturalcrit.com/share/HJMdrpxOx
-
-    const character = new Character(charObj, actions[action]);
-
-    log(character);
-
-    character.addAttributes(updateAbilities(character, context));
-    character.addAttributes(await updateHitPoints(character, context));
-
-    const messages = applyUpdate(character);
-    context.info(messages.join("<br />"));
-
-    // log(results);
-
-    // newAttributes.push(updateHitPoints(character));
-    // newAttributes.push(updateArmor(character));
-    // newAttributes.push(updateType(character)); // includes name
-    // newAttributes.push(updateSaves(character));
-    // newAttributes.push(updateAttack(character)); // bab and weapons
-    // newAttributes.push(updateSkills(character));
-    // newAttributes.push(updateFeats(character));
-    // newAttributes.push(updateSpecial(character));
-
-    // const messages = [];
-
-    // const currentName = charObj.get("name");
-    // const newName = `${template.name} ${charObj.get("name")}`;
-    // charObj.set({ name: newName });
-    // messages.push(`Updated name from ${currentName} to ${newName}`);
-
-    // Step 2: Hit dice and natural armor
-
-    // // calculate ac: 10 + armor bonus + shield bonus + dext modifier + natural armor - size modifier
-    // // 10 + -1 (size)
-    // // current 17
-    // // also ac_touch, ac_flatfooted
-    // // parse the ac_notes
-    // // const ac = findObjs({
-    // //   type: "attribute",
-    // //   _characterid: charObj.id,
-    // //   name: "ac",
-    // // })[0];
-
-    // // // current
-    // const acNotes = findObjs({
-    //   type: "attribute",
-    //   _characterid: charObj.id,
-    //   name: "ac_notes",
-    // })[0];
-
-    // const newNaturalAc = calculateSizeBonus(
-    //   charObj.id,
-    //   template.naturalArmorBonus
-    // );
-
-    // sChat(
-    //   msg,
-    //   `MANUALLY update current ac '${acNotes.get(
-    //     "current"
-    //   )}' REPLACING natural armor bonus to +${newNaturalAc}.`
-    // );
-
-    // TODO: update fortitude, reflex, will
-    // TODO: update bab
-
-    // const attributes = findObjs(
-    //   { type: "attribute", _characterid: charObj.id },
-    //   { caseInsensitive: true }
-    // );
-
-    // log(attributes);
-
-    // Step 3: Base stats
-
-    // update name to + action?
-    // const attributes = findObjs(
-    //   { type: "attribute", _characterid: charObj.id },
-    //   { caseInsensitive: true }
-    // );
-
-    // log(attributes);
-
-    // update character controlled by username
-
-    // update weapons using repeating rows
-    // https://github.com/Roll20/roll20-api-scripts/blob/12d949a668df8a986f1a20f32fc9aff667c6ee8e/CharSheetUtils/1.0/index.js
-    // createObj("attribute", {name: 'repeating_attack_$7_name', current: 'testingXYZ', _characterid: character.id});
+  msg.selected.forEach((selection) => {
+    // NOTE: this weird contraption with .catch and setTimeout is to
+    // make sure the error isn't swallowed somewhere in the async world.
+    // This is necessary to get the error actually displayed in the console
+    processCharacter(selection, context).catch((err) => {
+      setTimeout(() => {
+        log("finally going for the error?");
+        throw err;
+      }, 0);
+    });
   });
 };
 
