@@ -1,0 +1,14 @@
+{
+  "name": "roll20_scripts",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:mvgijssel/roll20_scripts.git",
+  "author": "mvgijssel <6029816+mvgijssel@users.noreply.github.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^7.17.0",
+    "eslint-config-airbnb-base": "^14.2.1",
+    "eslint-config-prettier": "^7.1.0",
+    "eslint-plugin-import": "^2.22.1"
+  }
+}

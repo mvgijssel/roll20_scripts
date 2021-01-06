@@ -9,19 +9,20 @@
 // TODO: Implement feats
 // TODO: Implement special, check (Ex) qualities?
 
+/* global sendChat, findObjs, _, log, getObj, getAttrByName, on */
+
 const castToNumber = (value) => {
   const newValue = parseInt(value, 10);
-  return isNaN(newValue) ? 0 : newValue;
+  return Number.isNaN(newValue) ? 0 : newValue;
 };
 
 const sChat = (msg, txt) => {
   sendChat(
     "animate",
-    "/w " +
-      msg.who.replace(" (GM)", "") +
-      ' <div style="color: #993333;font-weight:bold;">' +
-      txt +
-      "</div>",
+    `/w ${msg.who.replace(
+      " (GM)",
+      ""
+    )} <div style="color: #993333;font-weight:bold;">${txt}</div>`,
     null,
     { noarchive: true }
   );
@@ -63,7 +64,7 @@ const updateAbility = (characterId, name, value, operation = "set") => {
   const ability = findObjs({
     type: "attribute",
     _characterid: characterId,
-    name: name,
+    name,
   })[0];
 
   log(ability);
@@ -132,7 +133,7 @@ const process = (msg) => {
 
   if (match === null) return;
 
-  const action = match.groups.action;
+  const { action } = match.groups;
 
   log(msg);
   log(match.groups);
@@ -150,11 +151,11 @@ const process = (msg) => {
 
   // iterate selection
   msg.selected.forEach((selection) => {
-    const tokenObj = getObj("graphic", selection._id);
+    const tokenObj = getObj("graphic", selection.id);
     const template = actions[action];
 
     if (tokenObj === undefined) {
-      sChat(msg, `Unable to find graphic for ${selection._id}.`);
+      sChat(msg, `Unable to find graphic for ${selection.id}.`);
       return;
     }
 
@@ -165,7 +166,7 @@ const process = (msg) => {
     if (charObj === undefined) {
       sChat(
         msg,
-        `Token with id ${tokenObj._id} is not correctly linked to a good character.`
+        `Token with id ${tokenObj.id} is not correctly linked to a good character.`
       );
       return;
     }
