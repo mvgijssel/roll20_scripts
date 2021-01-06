@@ -1,6 +1,13 @@
-// Register a function for the 'ready' event.  When it occurs, which happens only once
-//   this function will get called.  This avoids getting events resulting from the
-//   loading of all the game state into the API
+// TODO: Make idempotent
+// TODO: Make reverse of animate. preanimate?
+// TODO: Make !animate be able to assign it to a user
+// TODO: Implement updated armor
+// TODO: Implement saves
+// TODO: Implement base attack bonus
+// TODO: Implement type and alignment
+// TODO: Implement skills
+// TODO: Implement feats
+// TODO: Implement special, check (Ex) qualities?
 
 const castToNumber = (value) => {
   const newValue = parseInt(value, 10);
