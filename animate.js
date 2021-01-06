@@ -8,6 +8,7 @@
 // TODO: Implement skills
 // TODO: Implement feats
 // TODO: Implement special, check (Ex) qualities?
+// TODO: Update all attributes in a single go? More or less?
 
 /* global sendChat, findObjs, _, log, getObj, getAttrByName, on */
 
@@ -30,7 +31,7 @@ const sChat = (msg, txt) => {
 
 const calculateModifier = (number) => Math.floor(number / 2) - 5;
 
-const calculateNaturalAc = (characterId, mapping) => {
+const calculateSizeBonus = (characterId, mapping) => {
   const size = findObjs({
     type: "attribute",
     _characterid: characterId,
@@ -40,24 +41,14 @@ const calculateNaturalAc = (characterId, mapping) => {
   return castToNumber(_.get(mapping, size.get("current"), 0));
 };
 
-const calculateBonusHd = (characterId) => {
-  const size = findObjs({
-    type: "attribute",
-    _characterid: characterId,
-    name: "size",
-  })[0];
-
-  const mapping = {
-    tiny: 0,
-    small: +1,
-    medium: +1,
-    large: +2,
-    huge: +4,
-    gargantuan: +6,
-    colossal: +10,
-  };
-
-  return castToNumber(_.get(mapping, size.get("current"), 0));
+const bonusHdMapping = {
+  tiny: 0,
+  small: +1,
+  medium: +1,
+  large: +2,
+  huge: +4,
+  gargantuan: +6,
+  colossal: +10,
 };
 
 const updateAbility = (characterId, name, value, operation = "set") => {
@@ -173,12 +164,12 @@ const process = (msg) => {
 
     log(charObj);
 
-    // const attributes = findObjs(
-    //   { type: "attribute", _characterid: charObj.id },
-    //   { caseInsensitive: true }
-    // );
+    const attributes = findObjs(
+      { type: "attribute", _characterid: charObj.id },
+      { caseInsensitive: true }
+    );
 
-    // log(attributes);
+    log(attributes);
 
     // Update the character according to https://homebrewery.naturalcrit.com/share/HJMdrpxOx
     const messages = [];
@@ -223,7 +214,8 @@ const process = (msg) => {
       );
     } else {
       const currentLevel = castToNumber(matchResult.groups.level);
-      const newLevel = currentLevel + calculateBonusHd(charObj.id);
+      const newLevel =
+        currentLevel + calculateSizeBonus(charObj.id, bonusHdMapping);
       const newSize = 8;
       const newBonus =
         newLevel * castToNumber(getAttrByName(charObj.id, "charisma_mod"));
@@ -278,7 +270,7 @@ const process = (msg) => {
       name: "ac_notes",
     })[0];
 
-    const newNaturalAc = calculateNaturalAc(
+    const newNaturalAc = calculateSizeBonus(
       charObj.id,
       template.naturalArmorBonus
     );
