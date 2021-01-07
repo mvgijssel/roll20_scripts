@@ -1,4 +1,5 @@
 // TODO: Make idempotent
+// TODO: Always add success message to output
 // TODO: Make reverse of animate. preanimate?
 // TODO: Make !animate be able to assign it to a user
 // TODO: Implement saves
@@ -63,56 +64,79 @@ const castValue = (value, type) => {
   }
 };
 
-class Attribute {
-  constructor(originalAttribute, castType) {
-    this._id = originalAttribute.get("_id");
-    this._type = originalAttribute.get("_type");
-    this._characterid = originalAttribute.get("_characterid");
-    this.name = originalAttribute.get("name");
-    this._current = originalAttribute.get("current");
-    this._max = originalAttribute.get("max");
-    this._castType = castType;
-    this.originalAttribute = originalAttribute;
-    this.changedValues = {};
-    this.previousValues = {};
+class Base {
+  constructor(fieldObject) {
+    // store the raw attributes into the instance
+    this.fields = fieldObject.attributes;
+    // the object with the setters and getters from roll20
+    this._fieldObject = fieldObject;
+    this.changedFields = {};
+    this.originalFields = {};
+
+    return new Proxy(this, {
+      get: (target, prop) => {
+        if (prop in target.fields) {
+          return target.fields[prop];
+        }
+
+        return target[prop];
+      },
+
+      /* eslint-disable no-param-reassign */
+      set: (target, prop, value) => {
+        if (prop in target.fields) {
+          const previousValue = target.fields[prop];
+
+          // Don't update if the value is the same
+          if (value === previousValue) {
+            return value;
+          }
+
+          // only update the original fields on the first mutation
+          // to keep the actual original field after multiple mutations
+          if (!(prop in target.originalFields)) {
+            target.originalFields[prop] = target.fields[prop];
+          }
+
+          target.changedFields[prop] = value;
+          target.fields[prop] = value;
+        } else {
+          target[prop] = value;
+        }
+
+        return value;
+      },
+      /* eslint-disable no-param-reassign */
+    });
+  }
+
+  get id() {
+    return this.fields._id;
   }
 
   get hasChanged() {
-    return Object.keys(this.changedValues).length > 0;
-  }
-
-  get current() {
-    return castValue(this._current, this._type);
-  }
-
-  set current(value) {
-    this._setter(value, "current");
-  }
-
-  get max() {
-    return castValue(this._max, this._type);
-  }
-
-  set max(value) {
-    this._setter(value, "max");
-  }
-
-  _setter(value, field) {
-    const oldValue = this[field];
-    const newValue = castValue(value, this._castType);
-
-    if (oldValue !== newValue) {
-      this.previousValues[field] = oldValue;
-      this.changedValues[field] = newValue;
-      this[`_${field}`] = newValue;
-    }
+    return Object.keys(this.changedFields).length > 0;
   }
 }
 
-class Character {
+class Attribute extends Base {
+  constructor(originalAttribute, castType) {
+    super(originalAttribute);
+    this._castType = castType;
+  }
+
+  get current() {
+    return castValue(this.fields.current, this._castType);
+  }
+
+  get max() {
+    return castValue(this.fields.max, this._castType);
+  }
+}
+
+class Character extends Base {
   constructor(charObj, template) {
-    this.id = charObj.get("_id");
-    this.charObj = charObj;
+    super(charObj);
     this.template = template;
     this.attributes = {};
   }
@@ -202,28 +226,33 @@ const findAttribute = (character, name, type) => {
 };
 
 const applyUpdate = (character) => {
+  log("ABOUT TO UPDATE");
+  log(character);
   const messages = [];
 
   character.attributeArray.forEach((attribute) => {
-    if (attributeExists(character, `preanimate_${attribute.name}`)) {
+    const preanimateName = `preanimate_${attribute.name}`;
+
+    if (attributeExists(character, preanimateName)) {
       messages.push(`Attribute '${attribute.name}' already updated, skipping.`);
       return;
     }
 
-    const newValues = attribute.changedValues;
-    const oldValues = attribute.previousValues;
+    const newFields = attribute.changedFields;
+    const oldFields = attribute.originalFields;
 
     if (attribute.hasChanged) {
       messages.push(
-        Object.keys(newValues).map(
+        Object.keys(newFields).map(
           (valueName) =>
-            `Updated ${valueName} ${attribute.name} from ${oldValues[valueName]} to ${newValues[valueName]}`
+            `Updated ${valueName} ${attribute.name} from ${oldFields[valueName]} to ${newFields[valueName]}`
         )
       );
     }
 
+    // createObj("attribute", attribute);
     // TODO: create preanimate attribute object
-    attribute.originalAttribute.set(newValues);
+    attribute._fieldObject.set(newFields);
   });
 
   return _.flatten(messages);
@@ -412,10 +441,7 @@ const processCharacter = async (selection, context) => {
   log(attributes);
 
   // Update the character according to https://homebrewery.naturalcrit.com/share/HJMdrpxOx
-
   const character = new Character(charObj, actions[context.action]);
-
-  log(character);
 
   character.addAttributes(updateAbilities(character, context));
   character.addAttributes(await updateHitPoints(character, context));
