@@ -1,4 +1,3 @@
-// TODO: Make idempotent
 // TODO: Always add success message to output
 // TODO: Make reverse of animate. preanimate?
 // TODO: Make !animate be able to assign it to a user
@@ -9,7 +8,7 @@
 // TODO: Implement feats
 // TODO: Implement special, check (Ex) qualities?
 
-/* global sendChat, findObjs, _, log, getObj, on */
+/* global sendChat, findObjs, _, log, getObj, on, createObj */
 
 const bonusHdMapping = {
   tiny: 0,
@@ -21,7 +20,7 @@ const bonusHdMapping = {
   colossal: +10,
 };
 
-const actions = {
+const templates = {
   skeleton: {
     name: "Skeleton",
     strength: 0,
@@ -52,6 +51,15 @@ const actions = {
   },
 };
 
+const utilities = {
+  undo: {
+    description: "Undo the previous !animate:",
+  },
+  clean: {
+    description: "Remove all preanimate attributes:",
+  },
+};
+
 const castValue = (value, type) => {
   switch (type) {
     case "number": {
@@ -64,10 +72,12 @@ const castValue = (value, type) => {
   }
 };
 
+const preanimatePrefix = (string) => `preanimate_${string}`;
+
 class Base {
   constructor(fieldObject) {
-    // store the raw attributes into the instance
-    this.fields = fieldObject.attributes;
+    // store a copy of the raw attributes into the instance
+    this.fields = { ...fieldObject.attributes };
     // the object with the setters and getters from roll20
     this._fieldObject = fieldObject;
     this.changedFields = {};
@@ -173,7 +183,7 @@ class Context {
       `/w ${this._messageObject.who.replace(
         " (GM)",
         ""
-      )} <div style="color: #993333;font-weight:bold;">${text}</div>`,
+      )} <div style="color: #993333;">${text}</div>`,
       null,
       { noarchive: true }
     );
@@ -231,7 +241,7 @@ const applyUpdate = (character) => {
   const messages = [];
 
   character.attributeArray.forEach((attribute) => {
-    const preanimateName = `preanimate_${attribute.name}`;
+    const preanimateName = preanimatePrefix(attribute.name);
 
     if (attributeExists(character, preanimateName)) {
       messages.push(`Attribute '${attribute.name}' already updated, skipping.`);
@@ -250,19 +260,33 @@ const applyUpdate = (character) => {
       );
     }
 
-    // createObj("attribute", attribute);
-    // TODO: create preanimate attribute object
+    // TODO: when resetting sheet remove preanimate attributes
+    log("SETTING NEW FIELDS");
+    log(newFields);
     attribute._fieldObject.set(newFields);
+    createObj("attribute", { ...attribute.fields, name: preanimateName });
   });
 
   return _.flatten(messages);
 };
 
 const usage = () => {
-  const actionString = Object.keys(actions)
-    .map((action) => `!animate ${action}`)
+  const templateString = Object.keys(templates)
+    .map((action) => `<strong>!animate ${action}</strong>`)
     .join("<br />");
-  return `Select a token and type one of:<br />${actionString}`;
+
+  const utilityString = Object.keys(utilities)
+    .map(
+      (utility) =>
+        `${utilities[utility].description}<br /><strong>!animate ${utility}</strong>`
+    )
+    .join("<br /><br />");
+
+  let part = `USAGE: Select a token and convert it using the following templates:<br /><br />`;
+  part += templateString;
+  part += `<br /><br />Or use one of the following utility methods:<br /><br />`;
+  part += utilityString;
+  return part;
 };
 
 const calculateModifier = (number) => Math.floor(number / 2) - 5;
@@ -378,8 +402,6 @@ const updateArmor = (character, context) => {
     });
   } catch (e) {
     if (e instanceof UnmatchedRegex) {
-      log("warn working???");
-
       context.warn(
         `ac_notes field does not follow '+1 Dex, +2 Natural, 3 Armor' form: '${acNotes.current}'. Skipping updating armor.`
       );
@@ -440,15 +462,41 @@ const processCharacter = async (selection, context) => {
 
   log(attributes);
 
-  // Update the character according to https://homebrewery.naturalcrit.com/share/HJMdrpxOx
-  const character = new Character(charObj, actions[context.action]);
+  switch (context.action) {
+    case "clean": {
+      const preanimateAttributes = findObjs({
+        type: "attribute",
+        _characterid: charObj.id,
+      }).filter((attribute) =>
+        attribute.get("name").startsWith(preanimatePrefix(""))
+      );
 
-  character.addAttributes(updateAbilities(character, context));
-  character.addAttributes(await updateHitPoints(character, context));
-  character.addAttributes(updateArmor(character, context));
+      preanimateAttributes.forEach((attribute) => {
+        attribute.remove();
+      });
 
-  const messages = applyUpdate(character);
-  context.info(messages.join("<br />"));
+      context.info(
+        `Removed (${preanimateAttributes.length}) preanimate_ attributes.`
+      );
+      return;
+    }
+
+    case "undo": {
+      // TODO: implement this
+      context.info("undo not implemented.");
+      return;
+    }
+    default: {
+      // Update the character according to https://homebrewery.naturalcrit.com/share/HJMdrpxOx
+      const character = new Character(charObj, templates[context.action]);
+      character.addAttributes(updateAbilities(character, context));
+      character.addAttributes(await updateHitPoints(character, context));
+      character.addAttributes(updateArmor(character, context));
+
+      const messages = applyUpdate(character);
+      context.info(messages.join("<br />"));
+    }
+  }
 
   // log(results);
 
@@ -502,15 +550,20 @@ const process = (msg) => {
 
   if (match === null) return;
 
-  const { action } = match.groups;
+  const { action } = _.defaults(match.groups, { action: "" });
 
   log(msg);
   log(match.groups);
 
   const context = new Context(msg, action);
 
-  if (!Object.keys(actions).includes(action)) {
-    context.info(`Unknown action '${match.groups.action}'. ${usage()}`);
+  if (
+    !Object.keys(templates).includes(action) &&
+    !Object.keys(utilities).includes(action)
+  ) {
+    context.info(
+      `Unknown action '${match.groups.action}'.<br /><br />${usage()}`
+    );
     return;
   }
 
