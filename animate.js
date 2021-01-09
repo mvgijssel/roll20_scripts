@@ -1,5 +1,5 @@
+// TODO: when resetting sheet remove preanimate attributes
 // TODO: Always add success message to output
-// TODO: Make reverse of animate. preanimate?
 // TODO: Make !animate be able to assign it to a user
 // TODO: Implement saves
 // TODO: Implement base attack bonus
@@ -73,6 +73,7 @@ const castValue = (value, type) => {
 };
 
 const preanimatePrefix = (string) => `preanimate_${string}`;
+const withoutPreanimatePrefix = (string) => string.replace("preanimate_", "");
 
 class Base {
   constructor(fieldObject) {
@@ -130,9 +131,12 @@ class Base {
 }
 
 class Attribute extends Base {
-  constructor(originalAttribute, castType) {
+  constructor(originalAttribute, castType = null) {
     super(originalAttribute);
-    this._castType = castType;
+
+    if (castType) {
+      this._castType = castType;
+    }
   }
 
   get current() {
@@ -145,9 +149,13 @@ class Attribute extends Base {
 }
 
 class Character extends Base {
-  constructor(charObj, template) {
+  constructor(charObj, template = null) {
     super(charObj);
-    this.template = template;
+
+    if (template) {
+      this.template = template;
+    }
+
     this.attributes = {};
   }
 
@@ -176,8 +184,6 @@ class Context {
   }
 
   info(text) {
-    log(this._messageObject.who);
-
     sendChat(
       this._chatName,
       `/w ${this._messageObject.who.replace(
@@ -224,7 +230,6 @@ const findAttribute = (character, name, type) => {
     }
     case 1: {
       const attribute = new Attribute(result[0], type);
-      log(attribute);
       return attribute;
     }
     default: {
@@ -235,9 +240,7 @@ const findAttribute = (character, name, type) => {
   }
 };
 
-const applyUpdate = (character) => {
-  log("ABOUT TO UPDATE");
-  log(character);
+const applyUpdate = (character, witePreanimate) => {
   const messages = [];
 
   character.attributeArray.forEach((attribute) => {
@@ -260,11 +263,17 @@ const applyUpdate = (character) => {
       );
     }
 
-    // TODO: when resetting sheet remove preanimate attributes
-    log("SETTING NEW FIELDS");
-    log(newFields);
     attribute._fieldObject.set(newFields);
-    createObj("attribute", { ...attribute.fields, name: preanimateName });
+
+    if (!witePreanimate) {
+      return;
+    }
+
+    createObj("attribute", {
+      ...attribute.fields,
+      ...attribute.originalFields,
+      name: preanimateName,
+    });
   });
 
   return _.flatten(messages);
@@ -294,6 +303,46 @@ const calculateModifier = (number) => Math.floor(number / 2) - 5;
 const calculateSizeBonus = (character, mapping) => {
   const size = findAttribute(character, "size", "string");
   return castValue(_.get(mapping, size.current, 0), "number");
+};
+
+const revertAttributes = (character) => {
+  const preanimateAttributes = findObjs({
+    type: "attribute",
+    _characterid: character.id,
+  }).filter((attribute) =>
+    attribute.get("name").startsWith(preanimatePrefix(""))
+  );
+
+  const results = preanimateAttributes.map((preanimateAttribute) => {
+    const attribute = findAttribute(
+      character,
+      withoutPreanimatePrefix(preanimateAttribute.get("name"))
+    );
+
+    log(attribute);
+    log(preanimateAttribute);
+
+    attribute.current = preanimateAttribute.get("current");
+    attribute.max = preanimateAttribute.get("max");
+    return attribute;
+  });
+
+  return results;
+};
+
+const removePreanimateAttributes = (character) => {
+  const preanimateAttributes = findObjs({
+    type: "attribute",
+    _characterid: character.id,
+  }).filter((attribute) =>
+    attribute.get("name").startsWith(preanimatePrefix(""))
+  );
+
+  preanimateAttributes.forEach((attribute) => {
+    attribute.remove();
+  });
+
+  return preanimateAttributes;
 };
 
 const updateAbilities = (character) => {
@@ -455,50 +504,34 @@ const processCharacter = async (selection, context) => {
 
   log(charObj);
 
-  const attributes = findObjs(
-    { type: "attribute", _characterid: charObj.id },
-    { caseInsensitive: true }
-  );
-
-  log(attributes);
-
   switch (context.action) {
     case "clean": {
-      const preanimateAttributes = findObjs({
-        type: "attribute",
-        _characterid: charObj.id,
-      }).filter((attribute) =>
-        attribute.get("name").startsWith(preanimatePrefix(""))
-      );
-
-      preanimateAttributes.forEach((attribute) => {
-        attribute.remove();
-      });
-
+      const character = new Character(charObj);
+      const removedAttributes = removePreanimateAttributes(character);
       context.info(
-        `Removed (${preanimateAttributes.length}) preanimate_ attributes.`
+        `Removed (${removedAttributes.length}) preanimate_ attributes.`
       );
       return;
     }
-
     case "undo": {
-      // TODO: implement this
-      context.info("undo not implemented.");
+      const character = new Character(charObj);
+      character.addAttributes(revertAttributes(character, context));
+      removePreanimateAttributes(character);
+      const messages = applyUpdate(character, false);
+      context.info(messages.join("<br />"));
       return;
     }
     default: {
-      // Update the character according to https://homebrewery.naturalcrit.com/share/HJMdrpxOx
       const character = new Character(charObj, templates[context.action]);
+      // Update the character according to https://homebrewery.naturalcrit.com/share/HJMdrpxOx
       character.addAttributes(updateAbilities(character, context));
       character.addAttributes(await updateHitPoints(character, context));
       character.addAttributes(updateArmor(character, context));
 
-      const messages = applyUpdate(character);
+      const messages = applyUpdate(character, true);
       context.info(messages.join("<br />"));
     }
   }
-
-  // log(results);
 
   // newAttributes.push(updateType(character)); // includes name
   // newAttributes.push(updateSaves(character));
@@ -506,35 +539,6 @@ const processCharacter = async (selection, context) => {
   // newAttributes.push(updateSkills(character));
   // newAttributes.push(updateFeats(character));
   // newAttributes.push(updateSpecial(character));
-
-  // const messages = [];
-
-  // const currentName = charObj.get("name");
-  // const newName = `${template.name} ${charObj.get("name")}`;
-  // charObj.set({ name: newName });
-  // messages.push(`Updated name from ${currentName} to ${newName}`);
-
-  // Step 2: Hit dice and natural armor
-
-  // TODO: update fortitude, reflex, will
-  // TODO: update bab
-
-  // const attributes = findObjs(
-  //   { type: "attribute", _characterid: charObj.id },
-  //   { caseInsensitive: true }
-  // );
-
-  // log(attributes);
-
-  // Step 3: Base stats
-
-  // update name to + action?
-  // const attributes = findObjs(
-  //   { type: "attribute", _characterid: charObj.id },
-  //   { caseInsensitive: true }
-  // );
-
-  // log(attributes);
 
   // update character controlled by username
 
@@ -579,7 +583,6 @@ const process = (msg) => {
     // This is necessary to get the error actually displayed in the console
     processCharacter(selection, context).catch((err) => {
       setTimeout(() => {
-        log("finally going for the error?");
         throw err;
       }, 0);
     });
