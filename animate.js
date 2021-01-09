@@ -276,6 +276,9 @@ const applyUpdate = (character, witePreanimate) => {
     });
   });
 
+  const name = findAttribute(character, "npcdrop_name", "string");
+  character._fieldObject.set({ name: name.current });
+
   return _.flatten(messages);
 };
 
@@ -318,9 +321,6 @@ const revertAttributes = (character) => {
       character,
       withoutPreanimatePrefix(preanimateAttribute.get("name"))
     );
-
-    log(attribute);
-    log(preanimateAttribute);
 
     attribute.current = preanimateAttribute.get("current");
     attribute.max = preanimateAttribute.get("max");
@@ -483,6 +483,35 @@ const updateArmor = (character, context) => {
   return results;
 };
 
+const updateType = (character, context) => {
+  const results = [];
+
+  const name = findAttribute(character, "npcdrop_name", "string");
+  name.current = `${character.template.name} ${name.current}`;
+  results.push(name);
+
+  const alignment = findAttribute(character, "npc_alignment", "string");
+  alignment.current = "Ne";
+  results.push(alignment);
+
+  const type = findAttribute(character, "npc_type", "string");
+  const matchResult = type.current.match(
+    /(?<creatureType>\w+)\s+(?<subtype>\(.*\))?/
+  );
+
+  if (matchResult === null) {
+    context.warn(
+      `npc_type field does not follow 'Type (Subtype)' form: '${type.current}'. Skipping npc_type`
+    );
+    return results;
+  }
+
+  type.current = `Undead ${matchResult.groups.subtype}`;
+  results.push(type);
+
+  return results;
+};
+
 const processCharacter = async (selection, context) => {
   const tokenObj = getObj("graphic", selection._id);
 
@@ -518,6 +547,12 @@ const processCharacter = async (selection, context) => {
       character.addAttributes(revertAttributes(character, context));
       removePreanimateAttributes(character);
       const messages = applyUpdate(character, false);
+
+      if (messages.length === 0) {
+        context.info("Nothing to undo, please animate first.");
+        return;
+      }
+
       context.info(messages.join("<br />"));
       return;
     }
@@ -527,13 +562,13 @@ const processCharacter = async (selection, context) => {
       character.addAttributes(updateAbilities(character, context));
       character.addAttributes(await updateHitPoints(character, context));
       character.addAttributes(updateArmor(character, context));
+      character.addAttributes(updateType(character, context));
 
       const messages = applyUpdate(character, true);
       context.info(messages.join("<br />"));
     }
   }
 
-  // newAttributes.push(updateType(character)); // includes name
   // newAttributes.push(updateSaves(character));
   // newAttributes.push(updateAttack(character)); // bab and weapons
   // newAttributes.push(updateSkills(character));
