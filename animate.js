@@ -1,7 +1,6 @@
 // TODO: when resetting sheet remove preanimate attributes
 // TODO: Always add success message to output
 // TODO: Make !animate be able to assign it to a user
-// TODO: Implement saves
 // TODO: Implement base attack bonus
 // TODO: Implement type and alignment
 // TODO: Implement skills
@@ -308,6 +307,16 @@ const calculateSizeBonus = (character, mapping) => {
   return castValue(_.get(mapping, size.current, 0), "number");
 };
 
+const parseHitDice = (string) => {
+  const matchResult = string.match(
+    /(?<level>\d+)d(?<size>\d+)(?:\+(?<bonus>\d+))?/
+  );
+
+  if (matchResult === null) return matchResult;
+
+  return matchResult.groups.level;
+};
+
 const revertAttributes = (character) => {
   const preanimateAttributes = findObjs({
     type: "attribute",
@@ -376,18 +385,16 @@ const updateAbilities = (character) => {
 const updateHitPoints = (character, context) => {
   const results = [];
   const hdRoll = findAttribute(character, "hd_roll", "string");
-  const matchResult = hdRoll.current.match(
-    /(?<level>\d+)d(?<size>\d+)(?:\+(?<bonus>\d+))?/
-  );
+  const hitDice = parseHitDice(hdRoll.current);
 
-  if (matchResult === null) {
+  if (hitDice === null) {
     context.warn(
       `hd_roll field does not follow 1d4+10 form: '${hdRoll.current}'. Skipping hit points`
     );
     return results;
   }
 
-  const currentLevel = castValue(matchResult.groups.level, "number");
+  const currentLevel = castValue(hitDice, "number");
   const newLevel = currentLevel + calculateSizeBonus(character, bonusHdMapping);
   const newSize = 8;
   const currentCharismaModifier = character.getAttribute("charisma_mod")
@@ -512,6 +519,37 @@ const updateType = (character, context) => {
   return results;
 };
 
+const updateSaves = (character, context) => {
+  const results = [];
+
+  const hdRoll = character.getAttribute("hd_roll");
+  const hitDice = parseHitDice(hdRoll.current);
+
+  if (hitDice === null) {
+    context.warn(
+      `hd_roll field does not follow 1d4+10 form: '${hdRoll.current}'. Skipping saves`
+    );
+    return results;
+  }
+
+  const fortitude = findAttribute(character, "fortitude", "number");
+  const charismaMod = character.getAttribute("charisma_mod");
+  fortitude.current = 0 + charismaMod.current + Math.floor(hitDice / 3);
+  results.push(fortitude);
+
+  const reflex = findAttribute(character, "reflex", "number");
+  const dexterityMod = character.getAttribute("dexterity_mod");
+  reflex.current = 0 + dexterityMod.current + Math.floor(hitDice / 3);
+  results.push(reflex);
+
+  const will = findAttribute(character, "will", "number");
+  const wisdomMod = character.getAttribute("wisdom_mod");
+  will.current = 2 + wisdomMod.current + Math.floor(hitDice / 2);
+  results.push(will);
+
+  return results;
+};
+
 const processCharacter = async (selection, context) => {
   const tokenObj = getObj("graphic", selection._id);
 
@@ -563,13 +601,13 @@ const processCharacter = async (selection, context) => {
       character.addAttributes(await updateHitPoints(character, context));
       character.addAttributes(updateArmor(character, context));
       character.addAttributes(updateType(character, context));
+      character.addAttributes(updateSaves(character, context));
 
       const messages = applyUpdate(character, true);
       context.info(messages.join("<br />"));
     }
   }
 
-  // newAttributes.push(updateSaves(character));
   // newAttributes.push(updateAttack(character)); // bab and weapons
   // newAttributes.push(updateSkills(character));
   // newAttributes.push(updateFeats(character));
