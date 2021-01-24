@@ -1,5 +1,3 @@
-// TODO: Implement type and alignment
-// TODO: Implement skills
 // TODO: Implement feats
 // TODO: Implement special, check (Ex) qualities?
 // TODO: meleeattack descflag contains [[]] which are evualated, so escape the [[]] before rendering?
@@ -702,6 +700,30 @@ const updateAttack = (character, context) => {
   return results.concat(meleeAttacks).concat(rangedAttacks);
 };
 
+const updateSkills = (character) => {
+  const attributes = findObjs({
+    type: "attribute",
+    _characterid: character.id,
+  });
+
+  const skillNames = attributes
+    .filter((attribute) => attribute.get("name").endsWith("_classkill"))
+    .map((attribute) => attribute.get("name").replace("_classkill", ""));
+
+  const results = attributes
+    .filter((attribute) => skillNames.includes(attribute.get("name")))
+    .map((attribute) => {
+      const att = new Attribute(attribute);
+      att.current = 0;
+      att.setWithWorker = true;
+      return att;
+    });
+
+  log(results);
+
+  return results;
+};
+
 const processCharacter = async (selection, context) => {
   const tokenObj = getObj("graphic", selection._id);
 
@@ -755,6 +777,7 @@ const processCharacter = async (selection, context) => {
       character.addAttributes(updateType(character, context));
       character.addAttributes(updateSaves(character, context));
       character.addAttributes(updateAttack(character, context));
+      character.addAttributes(updateSkills(character, context));
 
       const messages = applyUpdate(character, true);
       context.info(messages.join("<br />"));
