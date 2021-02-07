@@ -8,17 +8,22 @@
   "devDependencies": {
     "@babel/plugin-transform-modules-commonjs": "^7.12.13",
     "@babel/register": "^7.12.13",
+    "bdd-lazy-var": "^2.6.0",
     "chai": "^4.3.0",
     "eslint": "^7.17.0",
     "eslint-config-airbnb-base": "^14.2.1",
     "eslint-config-prettier": "^7.1.0",
     "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-mocha": "^8.0.0",
     "eslint_d": "^10.0.0",
     "heward": "^0.2.0",
-    "mocha": "^8.2.1"
+    "mocha": "^8.2.1",
+    "mocha-sinon": "^2.1.2",
+    "sinon": "^9.2.4",
+    "sinon-chai": "^3.5.0"
   },
   "scripts": {
-    "build": "heward --name animate.js --script ./animate.js",
-    "test": "mocha test/*"
+    "build": "heward --name animate.js --script ./animate/index.js",
+    "test": "mocha"
   }
 }
