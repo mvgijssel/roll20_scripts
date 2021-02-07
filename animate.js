@@ -105,6 +105,10 @@ class Base {
 
     return new Proxy(this, {
       get: (target, prop) => {
+        if (prop in target) {
+          return target[prop];
+        }
+
         if (prop in target.fields) {
           return target.fields[prop];
         }
@@ -118,7 +122,8 @@ class Base {
           const previousValue = target.fields[prop];
 
           // Don't update if the value is the same
-          if (value === previousValue) {
+          // Always cast to string for comparison to remove difference in data type
+          if (String(value) === String(previousValue)) {
             return value;
           }
 
@@ -290,7 +295,7 @@ const findRepeatingAttributes = (character, name) => {
     }, {});
 };
 
-const applyUpdate = (character, witePreanimate) => {
+const applyUpdate = (character, writePreanimate) => {
   const messages = [];
 
   character.attributeArray.forEach((attribute) => {
@@ -319,7 +324,7 @@ const applyUpdate = (character, witePreanimate) => {
       attribute._fieldObject.set(newFields);
     }
 
-    if (!witePreanimate) {
+    if (!writePreanimate) {
       return;
     }
 
