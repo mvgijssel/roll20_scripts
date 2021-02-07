@@ -316,12 +316,12 @@ const applyUpdate = (character, writePreanimate) => {
             `Updated ${valueName} ${attribute.name} from ${oldFields[valueName]} to ${newFields[valueName]}`
         )
       );
-    }
 
-    if (attribute.setWithWorker) {
-      attribute._fieldObject.setWithWorker(newFields);
-    } else {
-      attribute._fieldObject.set(newFields);
+      if (attribute.setWithWorker) {
+        attribute._fieldObject.setWithWorker(newFields);
+      } else {
+        attribute._fieldObject.set(newFields);
+      }
     }
 
     if (!writePreanimate) {
