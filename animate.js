@@ -11,6 +11,15 @@
 import Context from "./lib/Context";
 import Attribute from "./lib/Attribute";
 import Character from "./lib/Character";
+import animateTemplates from "./animateTemplates";
+
+// cli parsing
+// - create
+//     duplicate character sheet
+//     modify character sheet
+//     create graphic/token and link it to character sheet
+// - undo
+// - clean
 
 const bonusHdMapping = {
   tiny: 0,
@@ -30,46 +39,6 @@ const bonusAttackMapping = {
   huge: -2,
   gargantuan: -4,
   colossal: -8,
-};
-
-const templates = {
-  skeleton: {
-    name: "Skeleton",
-    strength: 0,
-    dexterity: +2,
-    naturalArmorBonus: {
-      tiny: 0,
-      small: +1,
-      medium: +2,
-      large: +2,
-      huge: +3,
-      gargantuan: +6,
-      colossal: +10,
-    },
-  },
-  zombie: {
-    name: "Zombie",
-    strength: +2,
-    dexterity: -2,
-    naturalArmorBonus: {
-      tiny: 0,
-      small: +1,
-      medium: +2,
-      large: +3,
-      huge: +4,
-      gargantuan: +7,
-      colossal: +11,
-    },
-  },
-};
-
-const utilities = {
-  undo: {
-    description: "Undo the previous !animate:",
-  },
-  clean: {
-    description: "Remove all preanimate attributes:",
-  },
 };
 
 const parseRoll = (string) => {
@@ -207,25 +176,6 @@ const applyUpdate = (character, writePreanimate) => {
   character._fieldObject.set({ name: name.current });
 
   return _.flatten(messages);
-};
-
-const usage = () => {
-  const templateString = Object.keys(templates)
-    .map((action) => `<strong>!animate ${action}</strong>`)
-    .join("<br />");
-
-  const utilityString = Object.keys(utilities)
-    .map(
-      (utility) =>
-        `${utilities[utility].description}<br /><strong>!animate ${utility}</strong>`
-    )
-    .join("<br /><br />");
-
-  let part = `USAGE: Select a token and convert it using the following templates:<br /><br />`;
-  part += templateString;
-  part += `<br /><br />Or use one of the following utility methods:<br /><br />`;
-  part += utilityString;
-  return part;
 };
 
 const calculateModifier = (number) => Math.floor(number / 2) - 5;
@@ -642,7 +592,10 @@ const processCharacter = async (selection, context) => {
       return;
     }
     default: {
-      const character = new Character(charObj, templates[context.action]);
+      const character = new Character(
+        charObj,
+        animateTemplates[context.action]
+      );
       // Update the character according to https://homebrewery.naturalcrit.com/share/HJMdrpxOx
       character.addAttributes(updateAbilities(character, context));
       character.addAttributes(await updateHitPoints(character, context));
@@ -668,6 +621,34 @@ const processCharacter = async (selection, context) => {
   // createObj("attribute", {name: 'repeating_attack_$7_name', current: 'testingXYZ', _characterid: character.id});
 };
 
+const utilities = {
+  undo: {
+    description: "Undo the previous !animate:",
+  },
+  clean: {
+    description: "Remove all preanimate attributes:",
+  },
+};
+
+const usage = () => {
+  const templateString = Object.keys(animateTemplates)
+    .map((action) => `<strong>!animate ${action}</strong>`)
+    .join("<br />");
+
+  const utilityString = Object.keys(utilities)
+    .map(
+      (utility) =>
+        `${utilities[utility].description}<br /><strong>!animate ${utility}</strong>`
+    )
+    .join("<br /><br />");
+
+  let part = `USAGE: Select a token and convert it using the following templates:<br /><br />`;
+  part += templateString;
+  part += `<br /><br />Or use one of the following utility methods:<br /><br />`;
+  part += utilityString;
+  return part;
+};
+
 const process = (msg) => {
   if (msg.type !== "api") return;
 
@@ -683,7 +664,7 @@ const process = (msg) => {
   const context = new Context(msg, action);
 
   if (
-    !Object.keys(templates).includes(action) &&
+    !Object.keys(animateTemplates).includes(action) &&
     !Object.keys(utilities).includes(action)
   ) {
     context.info(
