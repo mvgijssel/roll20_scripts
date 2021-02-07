@@ -10,6 +10,7 @@
     "eslint-config-airbnb-base": "^14.2.1",
     "eslint-config-prettier": "^7.1.0",
     "eslint-plugin-import": "^2.22.1",
+    "eslint_d": "^10.0.0",
     "heward": "^0.2.0"
   },
   "scripts": {

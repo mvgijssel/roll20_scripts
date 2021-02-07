@@ -8,6 +8,10 @@
 
 /* global sendChat, findObjs, _, log, getObj, on, createObj */
 
+import Context from "./lib/Context";
+import Attribute from "./lib/Attribute";
+import Character from "./lib/Character";
+
 const bonusHdMapping = {
   tiny: 0,
   small: +1,
@@ -92,142 +96,6 @@ const castValue = (value, type) => {
 
 const preanimatePrefix = (string) => `preanimate_${string}`;
 const withoutPreanimatePrefix = (string) => string.replace("preanimate_", "");
-
-class Base {
-  constructor(fieldObject) {
-    // store a copy of the raw attributes into the instance
-    this.fields = { ...fieldObject.attributes };
-    // the object with the setters and getters from roll20
-    this._fieldObject = fieldObject;
-    this.changedFields = {};
-    this.originalFields = {};
-    this.setWithWorker = false;
-
-    return new Proxy(this, {
-      get: (target, prop) => {
-        if (prop in target) {
-          return target[prop];
-        }
-
-        if (prop in target.fields) {
-          return target.fields[prop];
-        }
-
-        return target[prop];
-      },
-
-      /* eslint-disable no-param-reassign */
-      set: (target, prop, value) => {
-        if (prop in target.fields) {
-          const previousValue = target.fields[prop];
-
-          // Don't update if the value is the same
-          // Always cast to string for comparison to remove difference in data type
-          if (String(value) === String(previousValue)) {
-            return value;
-          }
-
-          // only update the original fields on the first mutation
-          // to keep the actual original field after multiple mutations
-          if (!(prop in target.originalFields)) {
-            target.originalFields[prop] = target.fields[prop];
-          }
-
-          target.changedFields[prop] = value;
-          target.fields[prop] = value;
-        } else {
-          target[prop] = value;
-        }
-
-        return value;
-      },
-      /* eslint-disable no-param-reassign */
-    });
-  }
-
-  get id() {
-    return this.fields._id;
-  }
-
-  get hasChanged() {
-    return Object.keys(this.changedFields).length > 0;
-  }
-}
-
-class Attribute extends Base {
-  constructor(originalAttribute, castType = null) {
-    super(originalAttribute);
-
-    if (castType) {
-      this._castType = castType;
-    }
-  }
-
-  get current() {
-    return castValue(this.fields.current, this._castType);
-  }
-
-  get max() {
-    return castValue(this.fields.max, this._castType);
-  }
-}
-
-class Character extends Base {
-  constructor(charObj, template = null) {
-    super(charObj);
-
-    if (template) {
-      this.template = template;
-    }
-
-    this.attributes = {};
-  }
-
-  addAttributes(newAttributes) {
-    _.flatten(newAttributes).forEach((attribute) => {
-      this.attributes[attribute.name] = attribute;
-    });
-  }
-
-  getAttribute(name) {
-    return this.attributes[name];
-  }
-
-  get attributeArray() {
-    return Object.keys(this.attributes).map(
-      (attributeName) => this.attributes[attributeName]
-    );
-  }
-}
-
-class Context {
-  constructor(messageObject, action) {
-    this._messageObject = messageObject;
-    this._chatName = "animate";
-    this.action = action;
-  }
-
-  info(text) {
-    sendChat(
-      this._chatName,
-      `/w ${this._messageObject.who.replace(
-        " (GM)",
-        ""
-      )} <div style="color: #993333;">${text}</div>`,
-      null,
-      { noarchive: true }
-    );
-  }
-
-  // TODO: implement different coloring here
-  warn(text) {
-    this.info(text);
-  }
-
-  roll(text, callback) {
-    sendChat(this._chatName, `/roll ${text}`, callback, { noarchive: true });
-  }
-}
 
 const attributeExists = (character, name) => {
   const result = findObjs({
