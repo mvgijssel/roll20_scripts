@@ -1,21 +1,18 @@
 process.env.NODE_ENV = "test";
 
 import chai, { expect } from "chai";
+import Campaign from "mock20/Functions/API_Objects/Campaign";
 import sinon from "sinon";
 import sinonChai from "sinon-chai";
+
+require("mock20");
 
 chai.use(sinonChai);
 
 global.expect = expect;
 global.sinon = sinon;
 
-// This mimics the global log method available in roll20
-global.log = (content) => console.log(content);
-
-// after(async () => {
-//   await firebase.clearFirestoreData({ projectId: MY_PROJECT_ID });
-// });
-
-// beforeEach(async () => {
-//   await firebase.clearFirestoreData({ projectId: MY_PROJECT_ID });
-// });
+afterEach(() => {
+  sinon.restore();
+  Campaign().MOCK20reset();
+});

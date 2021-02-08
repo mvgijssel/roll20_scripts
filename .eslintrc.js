@@ -22,6 +22,7 @@ module.exports = {
         "mocha/no-exclusive-tests": "error",
         "mocha/no-pending-tests": "error",
         "no-undef": 0,
+        "no-unused-expressions": 0,
       },
     },
   ],

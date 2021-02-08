@@ -4,9 +4,18 @@ import Roll20 from "../../lib/Roll20";
 
 def("content", () => "!animate skeleton player2 Ogre");
 def("type", () => "api");
+def("gm", () =>
+  createObj("player", { _displayname: "playerGm" }, { MOCK20override: true })
+);
+def("player", () =>
+  createObj("player", { _displayname: "player1" }, { MOCK20override: true })
+);
+def("ogreCharacter", () => createObj("character", { name: "Ogre" }));
+def("goblinCharacter", () => createObj("character", { name: "Goblin" }));
+
 def("message", () => ({
   content: $content,
-  playerid: "-MQH0Xoy7G0TZOrwJnqR",
+  playerid: $gm.id,
   selected: [
     {
       _id: "-MSwV06iICMAVS3-_FWE",
@@ -14,42 +23,116 @@ def("message", () => ({
     },
   ],
   type: $type,
-  who: "player1 (GM)",
+  who: "playerGm (GM)",
 }));
 def("context", () => new Context("animate", $message));
 
-subject(() => Cli.process($context));
-
-context("when the content starts with !animate", () => {
-  def("content", () => "!animate");
-
-  beforeEach(() => {
-    sinon.stub(Roll20, "sendChat");
-  });
-
-  it("prints the script usage", () => {
-    $subject;
-
-    expect(Roll20.sendChat).to.have.been.calledOnce;
-    expect(Roll20.sendChat).to.have.been.calledWith(
-      "animate",
-      sinon.match(/\!animate <sheet> <template> <player>/)
-    );
-  });
+beforeEach(() => {
+  $gm;
+  $player;
+  $ogreCharacter;
+  $goblinCharacter;
 });
 
-context("with unrelated message type", () => {
-  def("type", () => "foo");
+describe("process", () => {
+  subject(() => Cli.process($context));
 
-  it("does not execute", () => {
-    expect($subject).to.eq(false);
+  context("with an unknown character sheet", () => {
+    def("content", () => "!animate skeleton player1 unknownSheet");
+
+    beforeEach(() => {
+      sinon.stub(Roll20, "sendChat");
+    });
+
+    it("prints available sheets", () => {
+      expect($subject).to.eq(false);
+
+      expect(Roll20.sendChat).to.have.been.calledOnce;
+      expect(Roll20.sendChat).to.have.been.calledWith(
+        "animate",
+        sinon.match(/Ogre, Goblin/)
+      );
+      expect(Roll20.sendChat).to.have.been.calledWith(
+        "animate",
+        sinon.match(/unknownSheet/)
+      );
+    });
   });
-});
 
-context("with unrelated message context", () => {
-  def("content", () => "!random message");
+  context("with an unknown player", () => {
+    def("content", () => "!animate skeleton unknownPlayer Ogre");
 
-  it("does not execute", () => {
-    expect($subject).to.eq(false);
+    beforeEach(() => {
+      sinon.stub(Roll20, "sendChat");
+    });
+
+    it("prints available players", () => {
+      expect($subject).to.eq(false);
+
+      expect(Roll20.sendChat).to.have.been.calledOnce;
+      expect(Roll20.sendChat).to.have.been.calledWith(
+        "animate",
+        sinon.match(/playerGm, player1/)
+      );
+      expect(Roll20.sendChat).to.have.been.calledWith(
+        "animate",
+        sinon.match(/unknownPlayer/)
+      );
+    });
+  });
+
+  context("with an unknown template", () => {
+    def("content", () => "!animate unknownTemplate player2 Ogre");
+
+    beforeEach(() => {
+      sinon.stub(Roll20, "sendChat");
+    });
+
+    it("prints available templates", () => {
+      expect($subject).to.eq(false);
+
+      expect(Roll20.sendChat).to.have.been.calledOnce;
+      expect(Roll20.sendChat).to.have.been.calledWith(
+        "animate",
+        sinon.match(/skeleton, zombie/)
+      );
+      expect(Roll20.sendChat).to.have.been.calledWith(
+        "animate",
+        sinon.match(/unknownTemplate/)
+      );
+    });
+  });
+
+  context("when the content starts with !animate", () => {
+    def("content", () => "!animate");
+
+    beforeEach(() => {
+      sinon.stub(Roll20, "sendChat");
+    });
+
+    it("prints the script usage", () => {
+      expect($subject).to.eq(false);
+      expect(Roll20.sendChat).to.have.been.calledOnce;
+      expect(Roll20.sendChat).to.have.been.calledWith(
+        "animate",
+        sinon.match(/!animate <template> <player> <sheet>/)
+      );
+    });
+  });
+
+  context("with unrelated message type", () => {
+    def("type", () => "foo");
+
+    it("does not execute", () => {
+      expect($subject).to.eq(false);
+    });
+  });
+
+  context("with unrelated message context", () => {
+    def("content", () => "!random message");
+
+    it("does not execute", () => {
+      expect($subject).to.eq(false);
+    });
   });
 });
