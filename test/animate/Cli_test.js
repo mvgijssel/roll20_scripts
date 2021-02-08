@@ -2,7 +2,6 @@ import Cli from "../../animate/Cli";
 import Context from "../../lib/Context";
 import Roll20 from "../../lib/Roll20";
 
-def("content", () => "!animate skeleton player2 Ogre");
 def("type", () => "api");
 def("gm", () =>
   createObj("player", { _displayname: "playerGm" }, { MOCK20override: true })
@@ -10,18 +9,14 @@ def("gm", () =>
 def("player", () =>
   createObj("player", { _displayname: "player1" }, { MOCK20override: true })
 );
+def("content", () => `!animate skeleton player1 Ogre`);
 def("ogreCharacter", () => createObj("character", { name: "Ogre" }));
 def("goblinCharacter", () => createObj("character", { name: "Goblin" }));
 
 def("message", () => ({
   content: $content,
   playerid: $gm.id,
-  selected: [
-    {
-      _id: "-MSwV06iICMAVS3-_FWE",
-      _type: "graphic",
-    },
-  ],
+  selected: [],
   type: $type,
   who: "playerGm (GM)",
 }));

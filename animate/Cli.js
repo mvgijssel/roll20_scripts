@@ -2,7 +2,7 @@ import templates from "./templates";
 import Roll20 from "../lib/Roll20";
 
 export default class Cli {
-  // !animate Ogre skeleton player
+  // !animate Ogre skeleton playerName
   static process(context) {
     const { message } = context;
 
@@ -10,7 +10,7 @@ export default class Cli {
     if (!message.content.startsWith("!animate")) return false;
 
     const match = message.content.match(
-      /!(?<operation>animate)\s+(?<template>\w+)\s+(?<player>\w+)\s+(?<sheet>.*$)/
+      /!(?<operation>animate)\s+(?<templateName>\w+)\s+(?<playerName>\w+)\s+(?<sheetName>.*$)/
     );
 
     if (match === null) {
@@ -20,46 +20,63 @@ export default class Cli {
       return false;
     }
 
-    const { template, player, sheet } = match.groups;
-    const availableTemplates = Object.keys(templates);
+    const { templateName, playerName, sheetName } = match.groups;
+    const availableTemplateNames = Object.keys(templates);
+    const template = templates[templateName];
 
-    if (!availableTemplates.includes(template)) {
+    if (!template) {
       context.info(
         `Error executing command "${message.content}"<br /><br />` +
-          `Unknown template '${template}'. Available templates are:<br /> ${availableTemplates.join(
+          `Unknown templateName '${templateName}'. Available templates are:<br /> ${availableTemplateNames.join(
             ", "
           )}. ${this.usage(context)}`
       );
       return false;
     }
 
-    const availablePlayerNames = Roll20.findObjs({
-      _type: "player",
-    }).map((playerObj) => playerObj.get("_displayname"));
+    const availablePlayers = Roll20.findObjs({ _type: "player" });
+    const player = availablePlayers.find(
+      (p) => p.get("_displayname") === playerName
+    );
+    const availablePlayerNames = availablePlayers.map((playerObj) =>
+      playerObj.get("_displayname")
+    );
 
-    if (!availablePlayerNames.includes(player)) {
+    if (!player) {
       context.info(
         `Error executing command "${message.content}"<br /><br />` +
-          `Unknown player '${player}'. Available players are:<br /> ${availablePlayerNames.join(
+          `Unknown playerName '${playerName}'. Available players are:<br /> ${availablePlayerNames.join(
             ", "
           )}. ${this.usage(context)}`
       );
       return false;
     }
 
-    const availableSheetNames = Roll20.findObjs({
+    const availableCharacters = Roll20.findObjs({
       _type: "character",
-    }).map((charObj) => charObj.get("name"));
+    });
+    const character = availableCharacters.find(
+      (c) => c.get("name") === sheetName
+    );
+    const availableCharacterNames = availableCharacters.map((charObj) =>
+      charObj.get("name")
+    );
 
-    if (!availableSheetNames.includes(sheet)) {
+    if (!character) {
       context.info(
         `Error executing command "${message.content}"<br /><br />` +
-          `Unknown sheet '${sheet}'. Available sheets are:<br /> ${availableSheetNames.join(
+          `Unknown sheetName '${sheetName}'. Available sheets are:<br /> ${availableCharacterNames.join(
             ", "
           )}. ${this.usage(context)}`
       );
       return false;
     }
+
+    context.setData({
+      player,
+      character,
+      template,
+    });
   }
 
   static usage(context) {
