@@ -37,9 +37,6 @@ export default class Cli {
       _type: "player",
     }).map((playerObj) => playerObj.get("_displayname"));
 
-    log("Player names");
-    log(availablePlayerNames);
-
     if (!availablePlayerNames.includes(player)) {
       context.info(
         `Error executing command "${message.content}"<br /><br />` +
@@ -53,9 +50,6 @@ export default class Cli {
     const availableSheetNames = Roll20.findObjs({
       _type: "character",
     }).map((charObj) => charObj.get("name"));
-
-    log("Sheet names");
-    log(availableSheetNames);
 
     if (!availableSheetNames.includes(sheet)) {
       context.info(

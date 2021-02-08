@@ -115,7 +115,7 @@ describe("process", () => {
       expect(Roll20.sendChat).to.have.been.calledOnce;
       expect(Roll20.sendChat).to.have.been.calledWith(
         "animate",
-        sinon.match(/!animate <template> <player> <sheet>/)
+        sinon.match(/!animate template player sheet/)
       );
     });
   });
