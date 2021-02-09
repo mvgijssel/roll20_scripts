@@ -6,6 +6,13 @@ import sinon from "sinon";
 import sinonChai from "sinon-chai";
 
 require("mock20");
+import MOCK20object from "mock20/Objects/Mock20_object";
+
+Object.defineProperty(MOCK20object.prototype, "attributes", {
+  get() {
+    return this.MOCK20data;
+  },
+});
 
 chai.use(sinonChai);
 

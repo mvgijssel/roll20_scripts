@@ -4,6 +4,7 @@ import Cli from "./Cli";
 on("ready", () => {
   on("chat:message", (message) => {
     const context = new Context("animate", message);
-    Cli.process(context);
+    const cli = new Cli(context);
+    cli.execute();
   });
 });
