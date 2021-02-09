@@ -1,4 +1,4 @@
-import { DiceRoller } from "../node_modules/dice-roller-parser/dist/index.js";
+import { DiceRoller } from "dice-roller-parser";
 
 import Character from "../lib/Character";
 import Attribute from "../lib/Attribute";
