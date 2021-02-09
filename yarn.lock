@@ -751,6 +751,11 @@ delayed-stream@~1.0.0:
   resolved "https://registry.yarnpkg.com/delayed-stream/-/delayed-stream-1.0.0.tgz#df3ae199acadfb7d440aaae0b29e2272b24ec619"
   integrity sha1-3zrhmayt+31ECqrgsp4icrJOxhk=
 
+dice-roller-parser@^0.1.8:
+  version "0.1.8"
+  resolved "https://registry.yarnpkg.com/dice-roller-parser/-/dice-roller-parser-0.1.8.tgz#d62e2615cd4b2b9ae5a183159a0bcf926ad5056f"
+  integrity sha512-/UYDWMX1FHU6RR3iZGfexKlqyBJXSPuHPkvvpZ8k3QVjaXVc56W5GeLc/0bf9qLZTn1YdVFrIBLzvBt/9UHoNw==
+
 diff@4.0.2, diff@^4.0.2:
   version "4.0.2"
   resolved "https://registry.yarnpkg.com/diff/-/diff-4.0.2.tgz#60f3aecb89d5fae520c11aa19efc2bb982aade7d"

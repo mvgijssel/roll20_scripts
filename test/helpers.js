@@ -14,6 +14,10 @@ Object.defineProperty(MOCK20object.prototype, "attributes", {
   },
 });
 
+MOCK20object.prototype.setWithWorker = function (...args) {
+  this.set(...args);
+};
+
 chai.use(sinonChai);
 
 global.expect = expect;
@@ -23,3 +27,16 @@ afterEach(() => {
   sinon.restore();
   Campaign().MOCK20reset();
 });
+
+const allAttributes = require("./fixtures/ogre_attributes.json");
+
+global.createCharacter = (overrides) => {
+  const character = createObj("character", overrides);
+  allAttributes.forEach((attribute) => {
+    createObj("attribute", {
+      ...attribute,
+      _characterid: character.id,
+    });
+  });
+  return character;
+};

@@ -26,5 +26,8 @@
   "scripts": {
     "build": "heward --name animate.js --script ./animate/index.js",
     "test": "mocha"
+  },
+  "dependencies": {
+    "dice-roller-parser": "^0.1.8"
   }
 }

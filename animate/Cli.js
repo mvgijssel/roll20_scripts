@@ -1,5 +1,6 @@
 import templates from "./templates";
 import Roll20 from "../lib/Roll20";
+import animate from "./animate";
 
 class UsageError extends Error {}
 
@@ -8,7 +9,7 @@ export default class Cli {
     this.context = context;
   }
 
-  execute() {
+  async execute() {
     // parse & validate
     // duplicate character
     // assign player to duplicate character
@@ -18,11 +19,16 @@ export default class Cli {
       const result = this.parse();
       if (!result) return false;
 
+      this.context.info(`Executing: '${this.context.message.content}'`);
+
       const { player, character, template } = result;
 
       const duplicate = this.duplicateCharacter(character);
+
       this.assignPlayerToCharacter(player, duplicate);
-      this.animate(duplicate, template);
+
+      await animate(this.context, duplicate, template);
+
       // this.renderCharacter(duplicate);
     } catch (e) {
       if (e instanceof UsageError) {
@@ -47,8 +53,6 @@ export default class Cli {
     }
   }
 
-  animate(duplicate, template) {}
-
   duplicateCharacter(character) {
     const currentAttributes = Roll20.findObjs({
       _type: "attribute",
@@ -57,7 +61,6 @@ export default class Cli {
 
     const duplicate = Roll20.createObj("character", {
       ...character.attributes,
-      gmnotes: "DUPE",
     });
 
     currentAttributes.forEach((attribute) => {
