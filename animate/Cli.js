@@ -51,8 +51,8 @@ export default class Cli {
 
   duplicateCharacter(character) {
     const currentAttributes = Roll20.findObjs({
-      _characterId: character.id,
       _type: "attribute",
+      _characterid: character.id,
     });
 
     const duplicate = Roll20.createObj("character", {
@@ -63,7 +63,7 @@ export default class Cli {
     currentAttributes.forEach((attribute) => {
       Roll20.createObj("attribute", {
         ...attribute.attributes,
-        _characterId: duplicate.id,
+        _characterid: duplicate.id,
       });
     });
 

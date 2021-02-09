@@ -11,7 +11,21 @@ def("player", () =>
 );
 def("content", () => `!animate skeleton player1 Ogre`);
 def("ogreCharacter", () => createObj("character", { name: "Ogre" }));
+def("ogreAttribute", () =>
+  createObj("attribute", {
+    name: "Strength",
+    current: "18",
+    _characterid: $ogreCharacter.id,
+  })
+);
 def("goblinCharacter", () => createObj("character", { name: "Goblin" }));
+def("goblinAttribute", () =>
+  createObj("attribute", {
+    name: "Strength",
+    current: "10",
+    _characterid: $goblinCharacter.id,
+  })
+);
 
 def("message", () => ({
   content: $content,
@@ -26,13 +40,21 @@ beforeEach(() => {
   $gm;
   $player;
   $ogreCharacter;
+  $ogreAttribute;
   $goblinCharacter;
+  $goblinAttribute;
 });
 
 const characters = (args = {}) =>
   Roll20.findObjs({
     _type: "character",
     ...args,
+  });
+
+const attributes = (character) =>
+  Roll20.findObjs({
+    _type: "attribute",
+    _characterid: character.id,
   });
 
 describe("execute", () => {
@@ -46,6 +68,16 @@ describe("execute", () => {
 
     expect(characters().length).to.eq(3);
     expect(Roll20.duplicateOfCharacter($ogreCharacter)).to.have.lengthOf(1);
+  });
+
+  it("duplicates the attributes", () => {
+    $subject;
+
+    const duplicates = Roll20.duplicateOfCharacter($ogreCharacter);
+    expect(duplicates).to.have.lengthOf(1);
+
+    expect(attributes($ogreCharacter)).to.have.lengthOf(1);
+    expect(attributes(duplicates[0])).to.have.lengthOf(2);
   });
 
   it("assigns the duplicate to the given player", () => {
