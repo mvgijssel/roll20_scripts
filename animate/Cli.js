@@ -4,12 +4,19 @@ import animate from "./animate";
 
 class UsageError extends Error {}
 
+// TODO: Implement feats
+// TODO: Implement special, check (Ex) qualities?
+// TODO: meleeattack descflag contains [[]] which are evualated, so escape the [[]] before rendering?
+// TODO: Make !animate be able to assign it to a user
+// TODO: Always add success message to output
+// TODO: when resetting sheet remove preanimate attributes
+// TODO: print results into a table
 export default class Cli {
   constructor(context) {
     this.context = context;
   }
 
-  async execute() {
+  execute() {
     // parse & validate
     // duplicate character
     // assign player to duplicate character
@@ -27,7 +34,7 @@ export default class Cli {
 
       this.assignPlayerToCharacter(player, duplicate);
 
-      await animate(this.context, duplicate, template);
+      animate(this.context, duplicate, template);
 
       // this.renderCharacter(duplicate);
     } catch (e) {

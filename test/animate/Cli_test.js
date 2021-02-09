@@ -52,18 +52,18 @@ const attributes = (character) =>
 describe("execute", () => {
   subject(() => new Cli($context).execute());
 
-  it("duplicates the character", async () => {
+  it("duplicates the character", () => {
     expect(characters().length).to.eq(2);
     expect(Roll20.duplicateOfCharacter($ogreCharacter)).to.have.lengthOf(0);
 
-    await $subject;
+    $subject;
 
     expect(characters().length).to.eq(3);
     expect(Roll20.duplicateOfCharacter($ogreCharacter)).to.have.lengthOf(1);
   });
 
-  it("duplicates the attributes", async () => {
-    await $subject;
+  it("duplicates the attributes", () => {
+    $subject;
 
     const duplicates = Roll20.duplicateOfCharacter($ogreCharacter);
     expect(duplicates).to.have.lengthOf(1);
@@ -72,16 +72,16 @@ describe("execute", () => {
     expect(attributes(duplicates[0])).to.have.lengthOf(950);
   });
 
-  it("assigns the duplicate to the given player", async () => {
-    await $subject;
+  it("assigns the duplicate to the given player", () => {
+    $subject;
 
     expect(
       Roll20.duplicateOfCharacter($ogreCharacter)[0].get("controlledby")
     ).to.eq($player.id);
   });
 
-  it("Animates the duplicated character", async () => {
-    await $subject;
+  it("Animates the duplicated character", () => {
+    $subject;
 
     expect(characters({ name: "Skeleton Ogre" })).to.have.lengthOf(1);
 
@@ -101,8 +101,8 @@ describe("execute", () => {
       sinon.stub(Roll20, "sendChat");
     });
 
-    it("prints available sheets", async () => {
-      expect(await $subject).to.eq(false);
+    it("prints available sheets", () => {
+      expect($subject).to.eq(false);
 
       expect(Roll20.sendChat).to.have.been.calledOnce;
       expect(Roll20.sendChat).to.have.been.calledWith(
@@ -123,8 +123,8 @@ describe("execute", () => {
       sinon.stub(Roll20, "sendChat");
     });
 
-    it("prints available players", async () => {
-      expect(await $subject).to.eq(false);
+    it("prints available players", () => {
+      expect($subject).to.eq(false);
 
       expect(Roll20.sendChat).to.have.been.calledOnce;
       expect(Roll20.sendChat).to.have.been.calledWith(
@@ -145,8 +145,8 @@ describe("execute", () => {
       sinon.stub(Roll20, "sendChat");
     });
 
-    it("prints available templates", async () => {
-      expect(await $subject).to.eq(false);
+    it("prints available templates", () => {
+      expect($subject).to.eq(false);
 
       expect(Roll20.sendChat).to.have.been.calledOnce;
       expect(Roll20.sendChat).to.have.been.calledWith(
@@ -167,8 +167,8 @@ describe("execute", () => {
       sinon.stub(Roll20, "sendChat");
     });
 
-    it("prints the script usage", async () => {
-      expect(await $subject).to.eq(false);
+    it("prints the script usage", () => {
+      expect($subject).to.eq(false);
       expect(Roll20.sendChat).to.have.been.calledOnce;
       expect(Roll20.sendChat).to.have.been.calledWith(
         "animate",
@@ -180,16 +180,16 @@ describe("execute", () => {
   context("with unrelated message type", () => {
     def("type", () => "foo");
 
-    it("does not execute", async () => {
-      expect(await $subject).to.eq(false);
+    it("does not execute", () => {
+      expect($subject).to.eq(false);
     });
   });
 
   context("with unrelated message context", () => {
     def("content", () => "!random message");
 
-    it("does not execute", async () => {
-      expect(await $subject).to.eq(false);
+    it("does not execute", () => {
+      expect($subject).to.eq(false);
     });
   });
 });
