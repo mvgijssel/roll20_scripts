@@ -26,6 +26,19 @@ if (typeof process === "undefined") {
   Roll20.isTest = process.env.NODE_ENV === "test";
 }
 
+Roll20.players = () =>
+  Roll20.findObjs({
+    _type: "player",
+  });
+
+Roll20.playerByName = (name) =>
+  Roll20.players().find((p) => p.get("_displayname") == name);
+
+Roll20.characters = () =>
+  Roll20.findObjs({
+    _type: "character",
+  });
+
 Roll20.characterAttributes = (character, overrides = {}) =>
   Roll20.findObjs({
     _type: "attribute",

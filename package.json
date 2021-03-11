@@ -12,14 +12,17 @@
     "chai": "^4.3.0",
     "eslint": "^7.17.0",
     "eslint-config-airbnb-base": "^14.2.1",
-    "eslint-config-prettier": "^7.1.0",
+    "eslint-config-prettier": "^8.1.0",
     "eslint-plugin-import": "^2.22.1",
     "eslint-plugin-mocha": "^8.0.0",
+    "eslint-plugin-prettier": "^3.3.1",
     "eslint_d": "^10.0.0",
     "heward": "^0.2.0",
     "mocha": "^8.2.1",
     "mocha-sinon": "^2.1.2",
     "mock20": "^1.3.1",
+    "prettier": "^2.2.1",
+    "process": "^0.11.10",
     "sinon": "^9.2.4",
     "sinon-chai": "^3.5.0",
     "webpack": "^5.21.2",
@@ -28,9 +31,12 @@
   "scripts": {
     "build": "webpack --config webpack.config.js",
     "test": "mocha",
+    "test-debug": "mocha --inspect-brk",
     "deploy": "src/deploy.js"
   },
   "dependencies": {
-    "dice-roller-parser": "^0.1.8"
+    "commander": "^7.1.0",
+    "dice-roller-parser": "^0.1.8",
+    "shell-quote": "^1.7.2"
   }
 }

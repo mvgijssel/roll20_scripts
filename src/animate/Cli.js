@@ -1,8 +1,8 @@
-import templates from "./templates";
+import { Command, Option, CommanderError } from "commander";
+import { parse } from "shell-quote";
 import Roll20 from "../lib/Roll20";
 import animate from "./animate";
-
-class UsageError extends Error {}
+import templates from "./templates";
 
 // TODO: Implement feats
 // TODO: Implement special, check (Ex) qualities?
@@ -17,33 +17,76 @@ export default class Cli {
   }
 
   execute() {
-    // parse & validate
-    // duplicate character
-    // assign player to duplicate character
-    // convert duplicate character using animate algorithm
-    // put converted character on screen
-    try {
-      const result = this.parse();
-      if (!result) return false;
+    const { message } = this.context;
+    if (message.type !== "api") return false;
+    if (!message.content.startsWith("!animate")) return false;
 
-      this.context.info(`Executing: '${this.context.message.content}'`);
+    const program = new Command();
+    const programArgs = parse(message.content);
+    programArgs.shift();
 
-      const { player, character, template } = result;
+    program.version("0.0.1");
+    program.name("!animate");
+    program.exitOverride();
+    program.configureOutput({
+      writeOut: (str) => {
+        this.context.warn(str);
+      },
+      writeErr: (str) => {
+        this.context.info(str);
+      },
+      getOutHelpWidth: () => undefined,
+      getErrHelpWidth: () => undefined,
+    });
 
-      const duplicate = this.duplicateCharacter(character);
-
-      this.assignPlayerToCharacter(player, duplicate);
-
-      animate(this.context, duplicate, template);
-
-      // this.renderCharacter(duplicate);
-    } catch (e) {
-      if (e instanceof UsageError) {
-        this.context.info(
-          `Command '${this.context.message.content}' incorrect.<br /><br />` +
-            `${e.message}${e.message && "<br /><br />"}` +
-            `<strong>USAGE:</strong> !animate template player sheet`
+    program
+      .command("new <sheet>")
+      .description("Turn a character sheet into the animated version.", {
+        sheet: "Name of the character sheet",
+      })
+      .addOption(
+        new Option("-t, --template <template_name>")
+          .choices(Object.keys(templates))
+          .makeOptionMandatory()
+      )
+      .addOption(
+        new Option("-p, --player <player_name>")
+          .choices(this.playerNames())
+          .makeOptionMandatory()
+      )
+      .action((sheetName, { template, player }) => {
+        const availableCharacters = Roll20.characters();
+        const sheetObj = availableCharacters.find(
+          (c) => c.get("name") === sheetName
         );
+        const templateObj = templates[template];
+        const playerObj = Roll20.playerByName(player);
+
+        const availableCharacterNames = availableCharacters.map((charObj) =>
+          charObj.get("name")
+        );
+
+        if (!sheetObj) {
+          program._outputConfiguration.writeErr(
+            `Unknown sheet '${sheetName}'. Available sheets are:<br /> ${availableCharacterNames.join(
+              ", "
+            )}`
+          );
+          return false;
+        }
+        this.context.info(`Executing: '${this.context.message.content}'`);
+        const duplicate = this.duplicateCharacter(sheetObj);
+        this.assignPlayerToCharacter(playerObj, duplicate);
+
+        animate(this.context, duplicate, templateObj);
+        return true;
+      });
+
+    try {
+      program.parse(programArgs, { from: "user" });
+      return true;
+    } catch (e) {
+      if (e instanceof CommanderError) {
         return false;
       }
 
@@ -90,69 +133,7 @@ export default class Cli {
     character.set({ controlledby: String(player.id) });
   }
 
-  parse() {
-    const { message } = this.context;
-
-    if (message.type !== "api") return false;
-    if (!message.content.startsWith("!animate")) return false;
-
-    const match = message.content.match(
-      /!(?<operation>animate)\s+(?<templateName>\w+)\s+(?<playerName>\w+)\s+(?<sheetName>.*$)/
-    );
-
-    if (match === null) throw new UsageError();
-
-    const { templateName, playerName, sheetName } = match.groups;
-    const availableTemplateNames = Object.keys(templates);
-    const template = templates[templateName];
-
-    if (!template) {
-      throw new UsageError(
-        `Unknown templateName '${templateName}'. Available templates are:<br /> ${availableTemplateNames.join(
-          ", "
-        )}.`
-      );
-    }
-
-    const availablePlayers = Roll20.findObjs({ _type: "player" });
-    const player = availablePlayers.find(
-      (p) => p.get("_displayname") === playerName
-    );
-    const availablePlayerNames = availablePlayers.map((playerObj) =>
-      playerObj.get("_displayname")
-    );
-
-    if (!player) {
-      throw new UsageError(
-        `Unknown playerName '${playerName}'. Available players are:<br /> ${availablePlayerNames.join(
-          ", "
-        )}.`
-      );
-    }
-
-    const availableCharacters = Roll20.findObjs({
-      _type: "character",
-    });
-    const character = availableCharacters.find(
-      (c) => c.get("name") === sheetName
-    );
-    const availableCharacterNames = availableCharacters.map((charObj) =>
-      charObj.get("name")
-    );
-
-    if (!character) {
-      throw new UsageError(
-        `Error executing command "${message.content}"<br /><br />` +
-          `Unknown sheetName '${sheetName}'. Available sheets are:<br /> ${availableCharacterNames.join(
-            ", "
-          )}.`
-      );
-    }
-
-    return {
-      player,
-      character,
-      template,
-    };
+  playerNames() {
+    return Roll20.players().map((player) => player.get("_displayname"));
   }
 }

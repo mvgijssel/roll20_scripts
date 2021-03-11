@@ -1,6 +1,6 @@
-import Cli from "../../animate/Cli";
-import Context from "../../lib/Context";
-import Roll20 from "../../lib/Roll20";
+import Cli from "../../src/animate/Cli";
+import Context from "../../src/lib/Context";
+import Roll20 from "../../src/lib/Roll20";
 
 def("type", () => "api");
 def("gm", () =>
@@ -9,7 +9,7 @@ def("gm", () =>
 def("player", () =>
   createObj("player", { _displayname: "player1" }, { MOCK20override: true })
 );
-def("content", () => `!animate skeleton player1 Ogre`);
+def("content", () => `!animate new Ogre --template skeleton --player player1`);
 def("ogreCharacter", () => createCharacter({ name: "Ogre" }));
 def("goblinCharacter", () => createObj("character", { name: "Goblin" }));
 def("goblinAttribute", () =>
@@ -95,14 +95,17 @@ describe("execute", () => {
   });
 
   context("with an unknown character sheet", () => {
-    def("content", () => "!animate skeleton player1 unknownSheet");
+    def(
+      "content",
+      () => `!animate new unknownSheet --template skeleton --player player1`
+    );
 
     beforeEach(() => {
       sinon.stub(Roll20, "sendChat");
     });
 
     it("prints available sheets", () => {
-      expect($subject).to.eq(false);
+      expect($subject).to.eq(true);
 
       expect(Roll20.sendChat).to.have.been.calledOnce;
       expect(Roll20.sendChat).to.have.been.calledWith(
@@ -117,7 +120,10 @@ describe("execute", () => {
   });
 
   context("with an unknown player", () => {
-    def("content", () => "!animate skeleton unknownPlayer Ogre");
+    def(
+      "content",
+      () => `!animate new Ogre --template skeleton --player unknownPlayer`
+    );
 
     beforeEach(() => {
       sinon.stub(Roll20, "sendChat");
@@ -139,7 +145,10 @@ describe("execute", () => {
   });
 
   context("with an unknown template", () => {
-    def("content", () => "!animate unknownTemplate player2 Ogre");
+    def(
+      "content",
+      () => `!animate new Ogre --template unknownTemplate --player player1`
+    );
 
     beforeEach(() => {
       sinon.stub(Roll20, "sendChat");
@@ -172,7 +181,7 @@ describe("execute", () => {
       expect(Roll20.sendChat).to.have.been.calledOnce;
       expect(Roll20.sendChat).to.have.been.calledWith(
         "animate",
-        sinon.match(/!animate template player sheet/)
+        sinon.match(/Usage:/)
       );
     });
   });

@@ -8,12 +8,14 @@ export default class Context {
   }
 
   info(text) {
+    const updatedText = text.split("\n").join("<br />");
+
     Roll20.sendChat(
       this.name,
       `/w ${this.message.who.replace(
         " (GM)",
         ""
-      )} <div style="color: #993333;">${text}</div>`,
+      )} <div style="color: #993333;">${updatedText}</div>`,
       null,
       { noarchive: true }
     );
