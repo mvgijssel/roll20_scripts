@@ -79,6 +79,10 @@ describe("execute", () => {
     expect(
       Roll20.duplicateOfCharacter($ogreCharacter)[0].get("controlledby")
     ).to.eq($player.id);
+
+    expect(
+      Roll20.duplicateOfCharacter($ogreCharacter)[0].get("inplayerjournals")
+    ).to.eq($player.id);
   });
 
   it("Animates the duplicated character", () => {

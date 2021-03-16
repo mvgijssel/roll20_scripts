@@ -31,6 +31,39 @@ export default class Roll20 {
     });
   }
 
+  static assignPlayerToCharacter(player, character) {
+    const controlledby = [player.id].join(",");
+    const inplayerjournals = [player.id].join(",");
+
+    character.set({ controlledby, inplayerjournals });
+  }
+
+  static duplicateCharacter(character) {
+    const currentAttributes = Roll20.findObjs({
+      _type: "attribute",
+      _characterid: character.id,
+    });
+
+    const duplicate = Roll20.createObj("character", {
+      ...character.attributes,
+    });
+
+    currentAttributes.forEach((attribute) => {
+      Roll20.createObj("attribute", {
+        ...attribute.attributes,
+        _characterid: duplicate.id,
+      });
+    });
+
+    Roll20.createObj("attribute", {
+      _characterid: duplicate.id,
+      name: "duplicateOf",
+      current: String(character.id),
+    });
+
+    return duplicate;
+  }
+
   static findCharacterById(id) {
     const result = this.findObjs({
       _type: "character",
