@@ -412,11 +412,11 @@ const updateSpecial = (character) => {
   defensiveAbilities.current = character.template.defensiveAbilities;
   results.push(defensiveAbilities);
 
-  const dr = Roll20.findAttribute(character, "npc_dr", "string");
+  const dr = Roll20.findOrCreateAttribute(character, "npc_dr", "string");
   dr.current = character.template.dr;
   results.push(dr);
 
-  const immune = Roll20.findAttribute(character, "immune", "string");
+  const immune = Roll20.findOrCreateAttribute(character, "immune", "string");
   immune.current = character.template.immune;
   results.push(immune);
 
