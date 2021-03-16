@@ -110,7 +110,7 @@ const updateAbilities = (character) => {
   return results;
 };
 
-const updateHitPoints = (character, context) => {
+const updateHitPoints = (character, context, desecrate) => {
   const results = [];
   const hdRoll = Roll20.findAttribute(character, "hd_roll", "string");
   const hitDice = parseHitDice(hdRoll.current);
@@ -127,7 +127,13 @@ const updateHitPoints = (character, context) => {
   const newSize = 8;
   const currentCharismaModifier = character.getAttribute("charisma_mod")
     .current;
-  const newBonus = newLevel * castValue(currentCharismaModifier, "number");
+  let newBonus = newLevel * castValue(currentCharismaModifier, "number");
+
+  // https://www.d20pfsrd.com/magic/all-spells/d/desecrate/
+  // An undead creature created within or summoned into such an area gains +1 hit points per HD
+  if (desecrate) {
+    newBonus += newLevel;
+  }
 
   let newHdRoll = `${newLevel}d${newSize}`;
 
@@ -438,12 +444,12 @@ const updateSpecial = (character) => {
   return results;
 };
 
-export default (context, charObj, template) => {
+export default (context, charObj, template, { desecrate }) => {
   const character = new Character(charObj, template);
 
   // Update the character according to https://homebrewery.naturalcrit.com/share/HJMdrpxOx
   character.addAttributes(updateAbilities(character));
-  character.addAttributes(updateHitPoints(character, context));
+  character.addAttributes(updateHitPoints(character, context, desecrate));
   character.addAttributes(updateArmor(character, context));
   character.addAttributes(updateType(character, context));
   character.addAttributes(updateSaves(character, context));

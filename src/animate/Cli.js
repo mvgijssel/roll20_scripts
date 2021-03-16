@@ -4,7 +4,6 @@ import Roll20 from "../lib/Roll20";
 import animate from "./animate";
 import templates from "./templates";
 
-// TODO: implement desecrate in cli to increase the number of hit points for skeleton?
 // TODO: add “is in journal” to controlled by Maarten
 // TODO: add the characters to “Characters” sub section in journal
 // TODO: linking of tokens :/
@@ -59,7 +58,8 @@ export default class Cli {
           .choices(this.playerNames())
           .makeOptionMandatory()
       )
-      .action((sheetName, { template, player }) => {
+      .addOption(new Option("-d, --desecrate").default(false))
+      .action((sheetName, { template, player, desecrate }) => {
         const availableCharacters = Roll20.characters();
         const sheetObj = availableCharacters.find(
           (c) => c.get("name") === sheetName
@@ -83,7 +83,7 @@ export default class Cli {
         const duplicate = this.duplicateCharacter(sheetObj);
         this.assignPlayerToCharacter(playerObj, duplicate);
 
-        animate(this.context, duplicate, templateObj);
+        animate(this.context, duplicate, templateObj, { desecrate });
         return true;
       });
 

@@ -1,3 +1,4 @@
+import { expect } from "chai";
 import Cli from "../../src/animate/Cli";
 import Context from "../../src/lib/Context";
 import Roll20 from "../../src/lib/Roll20";
@@ -92,6 +93,24 @@ describe("execute", () => {
 
     expect(originalAttributes).to.have.lengthOf(881);
     expect(duplicateAttributes).to.have.lengthOf(953);
+  });
+
+  context("with desecrate flag", () => {
+    def(
+      "content",
+      () => `!animate new Ogre --template skeleton --player player1 --desecrate`
+    );
+
+    it("works with the desecrate flag", () => {
+      $subject;
+
+      expect(characters({ name: "Skeleton Ogre" })).to.have.lengthOf(1);
+
+      const duplicate = characters({ name: "Skeleton Ogre" })[0];
+      const hdRoll = Roll20.findAttributeByName(duplicate.id, "hd_roll");
+
+      expect(hdRoll.get("current")).to.eq("6d8+6");
+    });
   });
 
   context("with an unknown character sheet", () => {
