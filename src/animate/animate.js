@@ -103,7 +103,7 @@ const updateAbilities = (character) => {
   results.push(updateAbility("constitution", 0));
   results.push(updateAbility("intelligence", 0));
   results.push(updateAbility("wisdom", 10));
-  results.push(updateAbility("charisma", 10));
+  results.push(updateAbility("charisma", character.template.charisma));
   results.push(updateAbility("strength", character.template.strength, "add"));
   results.push(updateAbility("dexterity", character.template.dexterity, "add"));
 
@@ -392,13 +392,55 @@ const updateSkills = (character) => {
       return att;
     });
 
-  // Roll20.log(results);
+  return results;
+};
+
+const updateSpecial = (character) => {
+  const results = [];
+
+  const defensiveAbilities = Roll20.findAttribute(
+    character,
+    "defensive_abilities",
+    "string"
+  );
+  defensiveAbilities.current = character.template.defensiveAbilities;
+  results.push(defensiveAbilities);
+
+  const dr = Roll20.findAttribute(character, "npc_dr", "string");
+  dr.current = character.template.dr;
+  results.push(dr);
+
+  const immune = Roll20.findAttribute(character, "immune", "string");
+  immune.current = character.template.immune;
+  results.push(immune);
+
+  character.template.specialAbilities.forEach((ability) => {
+    const rowId = Roll20.generateRowID();
+
+    const createRepeatingAttribute = (name, value) => {
+      const rowName = `repeating_abilities_${rowId}_${name}`;
+      Roll20.createObj("attribute", {
+        name: rowName,
+        current: "",
+        max: "",
+        _characterid: character.id,
+      });
+      const attribute = Roll20.findAttribute(character, rowName);
+      attribute.current = value;
+      return attribute;
+    };
+
+    results.push(createRepeatingAttribute("name", ability.name));
+    results.push(createRepeatingAttribute("type", ability.description));
+    results.push(createRepeatingAttribute("description", ability.description));
+  });
 
   return results;
 };
 
 export default (context, charObj, template) => {
   const character = new Character(charObj, template);
+
   // Update the character according to https://homebrewery.naturalcrit.com/share/HJMdrpxOx
   character.addAttributes(updateAbilities(character));
   character.addAttributes(updateHitPoints(character, context));
@@ -407,6 +449,7 @@ export default (context, charObj, template) => {
   character.addAttributes(updateSaves(character, context));
   character.addAttributes(updateAttack(character, context));
   character.addAttributes(updateSkills(character));
+  character.addAttributes(updateSpecial(character));
 
   const messages = update(character, true);
   context.info(messages.join("<br />"));

@@ -69,7 +69,7 @@ describe("execute", () => {
     expect(duplicates).to.have.lengthOf(1);
 
     expect(attributes($ogreCharacter)).to.have.lengthOf(881);
-    expect(attributes(duplicates[0])).to.have.lengthOf(950);
+    expect(attributes(duplicates[0])).to.have.lengthOf(953);
   });
 
   it("assigns the duplicate to the given player", () => {
@@ -91,7 +91,7 @@ describe("execute", () => {
     const originalAttributes = Roll20.characterAttributes($ogreCharacter);
 
     expect(originalAttributes).to.have.lengthOf(881);
-    expect(duplicateAttributes).to.have.lengthOf(950);
+    expect(duplicateAttributes).to.have.lengthOf(953);
   });
 
   context("with an unknown character sheet", () => {

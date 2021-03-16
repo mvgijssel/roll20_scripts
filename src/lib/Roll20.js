@@ -31,6 +31,27 @@ export default class Roll20 {
     });
   }
 
+  static findCharacterById(id) {
+    const result = this.findObjs({
+      _type: "character",
+      _id: String(id),
+    });
+
+    switch (result.length) {
+      case 0: {
+        throw new Error(`Character with id '${id}' not found.`);
+      }
+      case 1: {
+        return result[0];
+      }
+      default: {
+        throw new Error(
+          `Character '${id}' resulted in more than 1 (${result.length}) result.`
+        );
+      }
+    }
+  }
+
   static characterAttributes(character, overrides) {
     return this.findObjs({
       _type: "attribute",
@@ -46,8 +67,32 @@ export default class Roll20 {
     return process.env.NODE_ENV === "test";
   }
 
+  static findAttributeByName(characterId, name) {
+    const result = this.findObjs({
+      _type: "attribute",
+      _characterid: characterId,
+      name,
+    });
+
+    switch (result.length) {
+      case 0: {
+        throw new Error(
+          `Attribute '${name}' not found for character ${characterId}`
+        );
+      }
+      case 1: {
+        return result[0];
+      }
+      default: {
+        throw new Error(
+          `Attribute '${name}' resulted in more than 1 (${result.length}) for character ${characterId}`
+        );
+      }
+    }
+  }
+
   static findAttribute(character, name, type) {
-    const result = Roll20.characterAttributes(character, { name });
+    const result = this.characterAttributes(character, { name });
 
     switch (result.length) {
       case 0: {
@@ -70,7 +115,7 @@ export default class Roll20 {
   // for example name is repeating_npcatk-melee
   // return { id: { ...attribute }}
   static findRepeatingAttributes(character, name) {
-    const result = Roll20.characterAttributes(character);
+    const result = this.characterAttributes(character);
 
     return result
       .filter((attribute) => attribute.get("name").startsWith(name))
@@ -95,14 +140,84 @@ export default class Roll20 {
       }, {});
   }
 
+  static findRepeatingAttributeByName(characterId, name) {
+    const result = this.findObjs({
+      _type: "attribute",
+      _characterid: characterId,
+    });
+
+    const hash = result
+      .filter((attribute) => attribute.get("name").startsWith(name))
+      .reduce((memo, attribute) => {
+        const matchResult = attribute
+          .get("name")
+          .match(
+            new RegExp(
+              `(?<prefix>${name})_(?<id>[a-zA-Z0-9-]+)_(?<nestedName>.+)`
+            )
+          );
+
+        const { id, nestedName } = matchResult.groups;
+
+        if (!(id in memo)) {
+          memo[id] = {};
+        }
+
+        memo[id][nestedName] = attribute;
+
+        return memo;
+      }, {});
+
+    return Object.keys(hash).map((key) => hash[key]);
+  }
+
   static attributeExists(character, name) {
     const result = Roll20.findObjs({
-      type: "attribute",
+      _type: "attribute",
       _characterid: character.id,
       name,
     });
 
     return result.length > 0;
+  }
+
+  // Copied from https://app.roll20.net/forum/post/3025111/api-and-repeating-sections-on-character-sheets/?pageforid=3037403#post-3037403
+  static generateUUID() {
+    let a = 0;
+    const b = [];
+    let c = new Date().getTime() + 0;
+    const d = c === a;
+    a = c;
+    for (var e = new Array(8), f = 7; f >= 0; f--) {
+      e[
+        f
+      ] = "-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz".charAt(
+        c % 64
+      );
+      c = Math.floor(c / 64);
+    }
+    c = e.join("");
+    if (d) {
+      for (f = 11; f >= 0 && b[f] === 63; f--) {
+        b[f] = 0;
+      }
+      b[f]++;
+    } else {
+      for (f = 0; f < 12; f++) {
+        b[f] = Math.floor(64 * Math.random());
+      }
+    }
+    for (f = 0; f < 12; f++) {
+      c += "-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz".charAt(
+        b[f]
+      );
+    }
+    return c;
+  }
+
+  // Copied from https://app.roll20.net/forum/post/3025111/api-and-repeating-sections-on-character-sheets/?pageforid=3037403#post-3037403
+  static generateRowID() {
+    return this.generateUUID().replace(/_/g, "Z");
   }
 }
 

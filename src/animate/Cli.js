@@ -4,13 +4,18 @@ import Roll20 from "../lib/Roll20";
 import animate from "./animate";
 import templates from "./templates";
 
+// TODO: implement desecrate in cli to increase the number of hit points for skeleton?
+// TODO: add “is in journal” to controlled by Maarten
+// TODO: add the characters to “Characters” sub section in journal
+// TODO: linking of tokens :/
+// TODO: add AC to green circle on token
+// TODO: set first attack for each character to icon as well, so don’t need to open character
+// TODO: set default cool icon
+// TODO: print results into a table
 // TODO: Implement feats
-// TODO: Implement special, check (Ex) qualities?
 // TODO: meleeattack descflag contains [[]] which are evualated, so escape the [[]] before rendering?
-// TODO: Make !animate be able to assign it to a user
 // TODO: Always add success message to output
 // TODO: when resetting sheet remove preanimate attributes
-// TODO: print results into a table
 export default class Cli {
   constructor(context) {
     this.context = context;
