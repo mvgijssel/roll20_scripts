@@ -48,6 +48,49 @@ export default class Cli {
     });
 
     program
+      .command("remove <sheet>")
+      .description(
+        "Removes animated characters based on the target orignal sheet."
+      )
+      .action((sheetName) => {
+        const availableCharacters = Roll20.characters();
+        const sheetObj = availableCharacters.find(
+          (c) => c.get("name") === sheetName
+        );
+        const availableCharacterNames = availableCharacters.map((charObj) =>
+          charObj.get("name")
+        );
+
+        if (!sheetObj) {
+          program._outputConfiguration.writeErr(
+            `Unknown sheet '${sheetName}'. Available sheets are:<br /> ${availableCharacterNames.join(
+              ", "
+            )}`
+          );
+          return false;
+        }
+
+        this.context.info(`Executing: '${this.context.message.content}'`);
+        const messages = [];
+
+        Roll20.duplicateOfCharacter(sheetObj).forEach((duplicate) => {
+          const owningIds = duplicate.get("controlledby").split(",");
+          const playerNames = Roll20.players()
+            .filter((player) => owningIds.includes(player.id))
+            .map((player) => player.get("_displayname"));
+
+          duplicate.remove();
+          messages.push(
+            `Removed character '${duplicate.get(
+              "name"
+            )}' for player(s) '${playerNames.join(", ")}'`
+          );
+        });
+
+        this.context.info(messages.join("<br />"));
+      });
+
+    program
       .command("new <sheet>")
       .description("Turn a character sheet into the animated version.", {
         sheet: "Name of the character sheet",

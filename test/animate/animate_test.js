@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import Sinon from "sinon";
 import animate from "../../src/animate/animate";
 import templates from "../../src/animate/templates";
 import Roll20 from "../../src/lib/Roll20";
@@ -7,7 +6,7 @@ import Context from "../../src/lib/Context";
 
 describe("animate", () => {
   beforeEach(() => {
-    Sinon.stub($context, "info");
+    sinon.stub($context, "info");
   });
 
   def("message", () => ({
