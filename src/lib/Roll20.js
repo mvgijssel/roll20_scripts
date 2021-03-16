@@ -112,6 +112,31 @@ export default class Roll20 {
     }
   }
 
+  static findOrCreateAttribute(character, name, type) {
+    const result = this.characterAttributes(character, { name });
+
+    switch (result.length) {
+      case 0: {
+        const createResult = Roll20.createObj("attribute", {
+          name,
+          current: "",
+          max: "",
+          _characterid: character.id,
+        });
+        return new Attribute(createResult, type);
+      }
+      case 1: {
+        const attribute = new Attribute(result[0], type);
+        return attribute;
+      }
+      default: {
+        throw new Error(
+          `Attribute '${name}' resulted in more than 1 (${result.length}) for character ${character.id}`
+        );
+      }
+    }
+  }
+
   // for example name is repeating_npcatk-melee
   // return { id: { ...attribute }}
   static findRepeatingAttributes(character, name) {

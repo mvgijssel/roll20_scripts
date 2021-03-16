@@ -39,6 +39,33 @@ describe("animate", () => {
     });
   });
 
+  describe("update special", () => {
+    def("character", () => createCharacter({ name: "Ogre" }));
+
+    const defensiveAbilities = () =>
+      Roll20.findAttributeByName($character.id, "defensive_abilities");
+
+    subject(() =>
+      animate($context, $character, templates.bloody_skeleton, {
+        desecrate: false,
+      })
+    );
+
+    context("without defensive abilities", () => {
+      beforeEach(() => {
+        defensiveAbilities().remove();
+      });
+
+      it("works", () => {
+        $subject;
+
+        expect(defensiveAbilities().get("current")).to.eq(
+          "Channel resistance +4, Deathless"
+        );
+      });
+    });
+  });
+
   describe("templates", () => {
     const name = () => Roll20.findCharacterById($character.id).get("name");
     const strength = () =>

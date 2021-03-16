@@ -404,7 +404,7 @@ const updateSkills = (character) => {
 const updateSpecial = (character) => {
   const results = [];
 
-  const defensiveAbilities = Roll20.findAttribute(
+  const defensiveAbilities = Roll20.findOrCreateAttribute(
     character,
     "defensive_abilities",
     "string"
